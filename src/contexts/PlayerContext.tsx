@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { usePlayerStore } from '../store/playerStore';
 import { shouldPreservePlayingStateDuringSeek } from './playerStatusGuard';
@@ -8,18 +8,30 @@ const PlayerContext = createContext<any>(null);
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const player = useAudioPlayer();
   const setControls = usePlayerStore(state => state.setControls);
+  const lastSeekAtRef = useRef(0);
+  const endHandledForSongIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (player) {
         setControls({
             play: () => setTimeout(() => player.play(), 0),
             pause: () => setTimeout(() => player.pause(), 0),
-            seekTo: (pos: number) => setTimeout(() => player.seekTo(pos), 0)
+            seekTo: (pos: number) => {
+              lastSeekAtRef.current = Date.now();
+              setTimeout(() => player.seekTo(pos), 0);
+            }
         });
     }
   }, [player, setControls]);
 
   const currentSong = usePlayerStore(state => state.currentSong);
+  const currentSongId = usePlayerStore(state => state.currentSongId);
+
+  useEffect(() => {
+    if (currentSongId && endHandledForSongIdRef.current !== currentSongId) {
+      endHandledForSongIdRef.current = null;
+    }
+  }, [currentSongId]);
 
   useEffect(() => {
     if (player && currentSong) {
@@ -71,9 +83,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Batch updates if possible, or only update if changed significantly
       store.updateProgress(currentTime, duration);
 
-      if (didJustFinish) {
+      const justSought = Date.now() - lastSeekAtRef.current < 1500;
+      const activeSongId = store.currentSongId;
+      const isNearEndFallback =
+        !didJustFinish &&
+        isLoaded &&
+        !isBuffering &&
+        !playing &&
+        duration > 0 &&
+        currentTime >= Math.max(0, duration - 0.35);
+      const shouldAdvance =
+        !justSought &&
+        (didJustFinish || isNearEndFallback) &&
+        !!activeSongId &&
+        endHandledForSongIdRef.current !== activeSongId;
+
+      if (shouldAdvance) {
+        endHandledForSongIdRef.current = activeSongId;
         store.setIsPlaying(true);
-        if (__DEV__) console.log('[PlayerContext] Song finished, playing next...');
+        if (__DEV__) console.log(`[PlayerContext] Song finished (${didJustFinish ? 'didJustFinish' : 'nearEndFallback'}), playing next...`);
         store.nextInPlaylist();
         return;
       }
