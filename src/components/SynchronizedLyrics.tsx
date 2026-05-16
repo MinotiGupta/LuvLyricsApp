@@ -127,6 +127,7 @@ interface SynchronizedLyricsProps {
   highlightColor?: string;
   topSpacerHeight?: number;
   bottomSpacerHeight?: number;
+  expandedAt?: number; // timestamp (Date.now()) when panel opened — resets initial scroll
 }
 
 const SynchronizedLyrics: React.FC<SynchronizedLyricsProps> = ({
@@ -142,11 +143,13 @@ const SynchronizedLyrics: React.FC<SynchronizedLyricsProps> = ({
   songTitle,
   highlightColor,
   topSpacerHeight = SCREEN_HEIGHT * 0.4,
-  bottomSpacerHeight = SCREEN_HEIGHT * 0.4
+  bottomSpacerHeight = SCREEN_HEIGHT * 0.4,
+  expandedAt = 0,
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const [isLayoutReady, setIsLayoutReady] = React.useState(false);
   const hasInitialScrolled = useRef(false);
+  const prevExpandedAt = useRef(expandedAt);
 
   // Per-item measured heights and precomputed offsets
   const itemHeights = useRef<number[]>([]);
@@ -191,6 +194,12 @@ const SynchronizedLyrics: React.FC<SynchronizedLyricsProps> = ({
 
   // ⚡ SCROLL CONTROL
   useEffect(() => {
+    // Reset initial-scroll flag when the panel is re-opened (expandedAt changed)
+    if (expandedAt !== prevExpandedAt.current) {
+      hasInitialScrolled.current = false;
+      prevExpandedAt.current = expandedAt;
+    }
+
     if (!isLayoutReady || isUserScrolling || !flatListRef.current) return;
     if (activeIndex < 0 || activeIndex >= lyrics.length) return;
 
@@ -218,7 +227,7 @@ const SynchronizedLyrics: React.FC<SynchronizedLyricsProps> = ({
     } else {
       performScroll(false);
     }
-  }, [activeIndex, isLayoutReady, isUserScrolling, lyrics.length, activeLinePosition]);
+  }, [activeIndex, isLayoutReady, isUserScrolling, lyrics.length, activeLinePosition, expandedAt]);
 
   // getItemLayout uses measured heights — accurate for wrapped lines
   const getItemLayout = useCallback((_: unknown, idx: number) => ({
