@@ -59,6 +59,9 @@ const App: React.FC = () => {
               usePlayerStore.getState().setInitialSong(lastPlayed);
           }
 
+          // Start desktop bridge if previously enabled
+          import('./store/desktopBridgeSettingsStore').then(m => m.useDesktopBridgeSettingsStore.getState().load()).catch(console.error);
+
           // Pre-fetch Luvs for instant playback
           import('./services/LuvsRecommendationEngine').then(m => m.luvsRecommendationEngine.prefetch()).catch(console.error);
 

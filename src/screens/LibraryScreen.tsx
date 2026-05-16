@@ -33,7 +33,7 @@ import { ModernDeleteModal } from '../components/ModernDeleteModal';
 import { SongListItem } from '../components/SongListItem';
 import { PerformanceHUD } from '../components/PerformanceHUD';
 import { useDownloadQueueStore } from '../store/downloadQueueStore';
-import { RecentlyPlayedGrid } from '../components/RecentlyPlayedGrid';
+import { RecentlyPlayedGrid, RecentlyPlayedMode } from '../components/RecentlyPlayedGrid';
 import { CoverArtSearchScreen } from './CoverArtSearchScreen';
 import { SongVersionSearchModal } from '../components/SongVersionSearchModal';
 import { Colors } from '../constants/colors';
@@ -83,6 +83,7 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
   const hideSong = useSongsStore(state => state.hideSong);
   
   // Sliced selectors — only re-render when specific fields change, not on every position tick
+  const playerCurrentSong = usePlayerStore(state => state.currentSong);
   const playerCurrentSongId = usePlayerStore(state => state.currentSong?.id);
   const playerCurrentCover = usePlayerStore(state => state.currentSong?.coverImageUri);
   const playerCurrentGradient = usePlayerStore(state => state.currentSong?.gradientId);
@@ -114,6 +115,7 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
   const [editArtist, setEditArtist] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [recentlyPlayedMode, setRecentlyPlayedMode] = useState<RecentlyPlayedMode>('recent');
   
   const scrollY = useSharedValue(0);
   const lastSentFocusMode = useSharedValue(false);
@@ -197,6 +199,16 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
          setToast({ visible: true, message: `Searching lyrics for "${song.title}"...`, type: 'success' });
       }
   }, [addToScanQueue]); // Removed scanQueue dependency!
+
+  const handleBrandPress = useCallback(() => {
+    if (!playerCurrentSongId) {
+      setToast({ visible: true, message: 'Play a song first to open artist mode', type: 'info' });
+      return;
+    }
+
+    Vibration.vibrate(10);
+    setRecentlyPlayedMode((currentMode) => currentMode === 'recent' ? 'artist' : 'recent');
+  }, [playerCurrentSongId]);
 
   const handleSearchFocus = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -292,6 +304,8 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
               onSongLongPress={handleSongLongPress}
               onLikePress={toggleLike}
               onMagicPress={handleAddToQueue}
+              mode={recentlyPlayedMode}
+              currentSong={playerCurrentSong}
               style={styles.recentlyPlayedGrid}
             />
               <View style={styles.sectionHeader}>
@@ -331,7 +345,7 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
         </>
       ) : null}
     </View>
-  ), [filteredSongs.length, handleSongPress, handleSongLongPress, toggleLike, handleAddToQueue, activeDownloadsCount, navigation, handleAddPress, isSearchFocused, searchQuery, handleSearchFocus, handleSearchCancel]);
+  ), [filteredSongs.length, handleSongPress, handleSongLongPress, toggleLike, handleAddToQueue, activeDownloadsCount, navigation, handleAddPress, isSearchFocused, searchQuery, handleSearchFocus, handleSearchCancel, playerCurrentSong, recentlyPlayedMode]);
 
   useEffect(() => {
     // LayoutAnimation setup removed to avoid 'no-op' warning in New Architecture.
@@ -513,7 +527,15 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
         <AuroraHeader palette="library" colors={activeThemeColors} imageUri={activeImageUri} />
       </Animated.View>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {!isSearchFocused && (<View style={styles.brandHeader}><Text style={styles.brandName}>LuvLyrics</Text></View>)}
+        {!isSearchFocused && (
+          <View style={styles.brandHeader}>
+            <Pressable onPress={handleBrandPress} hitSlop={12} style={styles.brandPressable}>
+              <Text style={styles.brandName} numberOfLines={1}>
+                LuvLyrics
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
           <AnimatedFlashList
             ref={flatListRef}
@@ -635,7 +657,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, zIndex: 10 },
   brandHeader: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 8 : 4, paddingBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brandName: { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -1.5, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4, maxWidth: '45%', paddingRight: 10, marginLeft: 6, marginTop: 5 },
+  brandPressable: { alignSelf: 'flex-start', flexShrink: 0, maxWidth: '100%' },
+  brandName: { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -1.5, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4, paddingRight: 10, marginLeft: 6, marginTop: 5, flexShrink: 0 },
   headerLeft: { flex: 1 },
   headerRight: { flexDirection: 'row', gap: 20 },
   headerButton: { padding: 4, position: 'relative' },
