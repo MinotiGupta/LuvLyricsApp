@@ -29,6 +29,7 @@ import { Colors } from '../constants/colors';
 import { exportAllSongs, shareExportedFile, importSongsFromJson } from '../utils/exportImport';
 import { clearAllData } from '../database/queries';
 import { useLuvsPreferencesStore } from '../store/luvsPreferencesStore';
+import { useDesktopBridgeSettingsStore } from '../store/desktopBridgeSettingsStore';
 
 const LuvsLanguagesModal = ({ visible, onClose }: { visible: boolean; onClose: () => void }) => {
     const { preferredLanguages, updateLanguageWeight } = useLuvsPreferencesStore();
@@ -118,6 +119,12 @@ const SettingsScreen: React.FC<Props> = () => {
   const { hiddenSongs, fetchHiddenSongs, hideSong: unhideSong } = useSongsStore();
   const [luvsLangModalVisible, setLuvsLangModalVisible] = React.useState(false);
   const { luvsLanguages } = useLuvsPreferencesStore();
+  const {
+    desktopConnectEnabled,
+    allowDesktopDownloads,
+    setDesktopConnectEnabled,
+    setAllowDesktopDownloads,
+  } = useDesktopBridgeSettingsStore();
 
   // Visibility Management: Hide MiniPlayer when Settings is focus
   useFocusEffect(
@@ -660,6 +667,22 @@ const SettingsScreen: React.FC<Props> = () => {
               label="Music Languages"
               value="Configure Weights"
               onPress={() => setLuvsLangModalVisible(true)}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>DESKTOP CONNECT</Text>
+            <SettingsRowSwitch
+              icon="desktop-outline"
+              label="Desktop Connect"
+              value={desktopConnectEnabled}
+              onToggle={setDesktopConnectEnabled}
+            />
+            <SettingsRowSwitch
+              icon="cloud-download-outline"
+              label="Allow Desktop Downloads"
+              value={allowDesktopDownloads}
+              onToggle={setAllowDesktopDownloads}
             />
           </View>
 

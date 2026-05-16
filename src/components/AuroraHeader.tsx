@@ -7,8 +7,8 @@
  * - Smooth fade without hard lines
  */
 
-import React from 'react';
-import { View, StyleSheet, Dimensions, Image as RNImage } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, Dimensions, Image as RNImage, Animated } from 'react-native';
 import { Canvas, Circle, Rect, Oval, BlurMask, vec, Group } from '@shopify/react-native-skia';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSharedValue, withRepeat, withTiming, useDerivedValue, Easing } from 'react-native-reanimated';
@@ -33,20 +33,65 @@ interface AuroraBackgroundProps {
   animated?: boolean; // Toggle animation
 }
 
+const AuroraCanvas: React.FC<{
+  c1: string; c2: string; c3: string;
+  t1: any; t2: any; t3: any;
+}> = ({ c1, c2, c3, t1, t2, t3 }) => (
+  <Canvas style={StyleSheet.absoluteFill}>
+    <Rect x={0} y={0} width={SCREEN_WIDTH} height={AURORA_HEIGHT} color={BASE_DARK} />
+
+    <Group transform={t2} origin={vec(SCREEN_WIDTH * 0.2, AURORA_HEIGHT * 0.3)}>
+      <Oval
+        x={-SCREEN_WIDTH * 0.2}
+        y={-AURORA_HEIGHT * 0.2}
+        width={SCREEN_WIDTH * 0.8}
+        height={AURORA_HEIGHT * 0.8}
+        color={c2}
+        opacity={0.4}
+      >
+        <BlurMask blur={70} style="normal" />
+      </Oval>
+    </Group>
+
+    <Group transform={t1} origin={vec(SCREEN_WIDTH * 0.8, AURORA_HEIGHT * 0.3)}>
+      <Oval
+        x={SCREEN_WIDTH * 0.5}
+        y={-AURORA_HEIGHT * 0.1}
+        width={SCREEN_WIDTH * 0.6}
+        height={AURORA_HEIGHT * 0.7}
+        color={c1}
+        opacity={0.3}
+      >
+        <BlurMask blur={70} style="normal" />
+      </Oval>
+    </Group>
+
+    <Group transform={t3} origin={vec(SCREEN_WIDTH * 0.5, AURORA_HEIGHT * 0.6)}>
+      <Oval
+        x={SCREEN_WIDTH * 0.2}
+        y={AURORA_HEIGHT * 0.2}
+        width={SCREEN_WIDTH * 0.6}
+        height={AURORA_HEIGHT * 0.8}
+        color={c3}
+        opacity={0.5}
+      >
+        <BlurMask blur={90} style="normal" />
+      </Oval>
+    </Group>
+  </Canvas>
+);
+
 export const AuroraHeader: React.FC<AuroraBackgroundProps> = ({
   colors,
   imageUri,
   animated = false,
 }) => {
-  // Animation Values
   const rotation = useSharedValue(0);
   const scale = useSharedValue(1);
-  
+
   React.useEffect(() => {
     if (animated) {
-      // Significantly slower: 20s -> 90s for rotation
       rotation.value = withRepeat(withTiming(360, { duration: 90000, easing: Easing.linear }), -1);
-      // 5s -> 20s for scale
       scale.value = withRepeat(withTiming(1.15, { duration: 20000, easing: Easing.inOut(Easing.ease) }), -1, true);
     } else {
       rotation.value = 0;
@@ -54,82 +99,56 @@ export const AuroraHeader: React.FC<AuroraBackgroundProps> = ({
     }
   }, [animated]);
 
-  // Derived Transforms
   const t1 = useDerivedValue(() => [{ rotate: 25 + (rotation.value * 0.5) }, { scale: scale.value }]);
   const t2 = useDerivedValue(() => [{ rotate: -25 - (rotation.value * 0.3) }, { scale: scale.value }]);
   const t3 = useDerivedValue(() => [{ rotate: rotation.value * 0.2 }, { scale: scale.value * 0.9 }]);
-  // Use custom colors if provided, otherwise fallback to hardcoded palettes (though currently only constants differ slightly)
-  // For now, if colors provided, map them to COLOR_1, COLOR_2, COLOR_3
-  const activeColors = colors && colors.length >= 2 ? [
-     colors[0],
-     colors[1],
-     colors[2] || colors[0] // Fallback for 3rd color
-  ] : [COLOR_1, COLOR_2, COLOR_3];
-  
-  const c1 = activeColors[0];
-  const c2 = activeColors[1];
-  const c3 = activeColors[2];
+
+  const activeColors = colors && colors.length >= 2
+    ? [colors[0], colors[1], colors[2] || colors[0]]
+    : [COLOR_1, COLOR_2, COLOR_3];
+
+  // Cross-fade between previous and new colors
+  const prevColorsRef = useRef<string[]>(activeColors);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const colorsKey = activeColors.join(',');
+  const prevKeyRef = useRef(colorsKey);
+
+  React.useLayoutEffect(() => {
+    if (prevKeyRef.current !== colorsKey) {
+      prevKeyRef.current = colorsKey;
+      fadeAnim.stopAnimation();
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          prevColorsRef.current = [...activeColors];
+        }
+      });
+    }
+  }, [colorsKey]);
+
+  const [pc1, pc2, pc3] = prevColorsRef.current;
+  const [c1, c2, c3] = activeColors;
+
   return (
     <View style={styles.container} pointerEvents="none">
       <View style={styles.auroraArea}>
-        <Canvas style={styles.canvas}>
-          <Rect x={0} y={0} width={SCREEN_WIDTH} height={AURORA_HEIGHT} color={BASE_DARK} />
+        {/* Previous colors layer — always underneath */}
+        <AuroraCanvas c1={pc1} c2={pc2} c3={pc3} t1={t1} t2={t2} t3={t3} />
 
+        {/* New colors layer — fades in on top */}
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
+          <AuroraCanvas c1={c1} c2={c2} c3={c3} t1={t1} t2={t2} t3={t3} />
+        </Animated.View>
 
-          
-          <Group transform={t2} origin={vec(SCREEN_WIDTH * 0.2, AURORA_HEIGHT * 0.3)}>
-            <Oval
-              x={-SCREEN_WIDTH * 0.2}
-              y={-AURORA_HEIGHT * 0.2}
-              width={SCREEN_WIDTH * 0.8}
-              height={AURORA_HEIGHT * 0.8}
-              color={c2}
-              opacity={0.4} 
-            >
-              <BlurMask blur={70} style="normal" />
-            </Oval>
-          </Group>
-
-          <Group transform={t1} origin={vec(SCREEN_WIDTH * 0.8, AURORA_HEIGHT * 0.3)}>
-            <Oval
-              x={SCREEN_WIDTH * 0.5}
-              y={-AURORA_HEIGHT * 0.1}
-              width={SCREEN_WIDTH * 0.6}
-              height={AURORA_HEIGHT * 0.7}
-              color={c1}
-              opacity={0.3} 
-            >
-              <BlurMask blur={70} style="normal" />
-            </Oval>
-          </Group>
-
-          <Group transform={t3} origin={vec(SCREEN_WIDTH * 0.5, AURORA_HEIGHT * 0.6)}>
-            <Oval
-              x={SCREEN_WIDTH * 0.2} 
-              y={AURORA_HEIGHT * 0.2} 
-              width={SCREEN_WIDTH * 0.6} 
-              height={AURORA_HEIGHT * 0.8} 
-              color={c3}
-              opacity={0.5} 
-            >
-              <BlurMask blur={90} style="normal" />
-            </Oval>
-          </Group>
-        </Canvas>
-
-        {/* Blurred Image Background (Behind Fade) */}
         {imageUri && (
-          <RNImage 
-            source={{ uri: imageUri }} 
-            style={[
-              StyleSheet.absoluteFill, 
-              { 
-                height: AURORA_HEIGHT,
-                opacity: 0.6, 
-                transform: [{ scale: 1.2 }] 
-              } 
-            ]}
-            blurRadius={90} 
+          <RNImage
+            source={{ uri: imageUri }}
+            style={[StyleSheet.absoluteFill, { height: AURORA_HEIGHT, opacity: 0.6, transform: [{ scale: 1.2 }] }]}
+            blurRadius={90}
             resizeMode="cover"
           />
         )}
@@ -140,10 +159,7 @@ export const AuroraHeader: React.FC<AuroraBackgroundProps> = ({
           style={styles.fadeToBlack}
         />
       </View>
-      
 
-
-      {/* Rest of screen remains dark */}
       <View style={styles.darkArea} />
     </View>
   );
