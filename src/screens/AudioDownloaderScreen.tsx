@@ -281,7 +281,7 @@ export const AudioDownloaderScreen: React.FC<AudioDownloaderProps> = ({ navigati
         });
 
         try {
-            console.log(`[Tab-${activeTabId.slice(-4)}] 🔍 Searching: ${finalQuery}`);
+            if (__DEV__) console.log(`[Tab-${activeTabId.slice(-4)}] 🔍 Searching: ${finalQuery}`);
             const results = await MultiSourceSearchService.searchMusic(finalQuery, artistQuery, (status) => {
                  updateTab(activeTabId, { status });
             });
@@ -292,7 +292,7 @@ export const AudioDownloaderScreen: React.FC<AudioDownloaderProps> = ({ navigati
                 
                 // Fallback: If strict filtering hid everything, but we have results, show them!
                 if (exactMatches.length === 0 && remixesAndCovers.length === 0 && results.length > 0) {
-                     console.log('[AudioDownloader] Strict filter hid all results. Falling back to raw.');
+                     if (__DEV__) console.log('[AudioDownloader] Strict filter hid all results. Falling back to raw.');
                      updateTab(activeTabId, { 
                         results, 
                         remixResults: [],
