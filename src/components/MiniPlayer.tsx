@@ -13,8 +13,6 @@ import Animated, {
   withTiming,
   withSequence,
   withSpring,
-  Easing,
-  cancelAnimation,
   interpolate,
   Extrapolation,
   runOnJS,
@@ -77,9 +75,10 @@ interface PlaybackControlsProps {
   onSkipForward: (e?: any) => void;
   animatedButtonStyle: any;
   variant: 'bar' | 'island-collapsed' | 'island-expanded';
+  showSkipButtons?: boolean;
 }
 const PlaybackControls = memo(({
-  playing, onToggle, onSkipBack, onSkipForward, animatedButtonStyle, variant,
+  playing, onToggle, onSkipBack, onSkipForward, animatedButtonStyle, variant, showSkipButtons = true,
 }: PlaybackControlsProps) => {
   if (variant === 'island-collapsed') {
     return (
@@ -95,29 +94,33 @@ const PlaybackControls = memo(({
   const isBar = variant === 'bar';
   return (
     <View style={isBar ? { flexDirection: 'row', alignItems: 'center' } : styles.expandedControls}>
-      <Pressable
-        onPress={(e) => { if (isBar) e.stopPropagation(); onSkipBack(isBar ? e : undefined); }}
-        hitSlop={isBar ? undefined : 10}
-        style={isBar ? styles.controlButton : undefined}
-      >
-        <Ionicons name="play-skip-back" size={24} color="#fff" />
-      </Pressable>
+      {showSkipButtons && (
+        <Pressable
+          onPress={(e) => { if (isBar) e.stopPropagation(); onSkipBack(isBar ? e : undefined); }}
+          hitSlop={isBar ? undefined : 10}
+          style={isBar ? styles.controlButton : undefined}
+        >
+          <Ionicons name="play-skip-back" size={24} color="#fff" />
+        </Pressable>
+      )}
       <Pressable
         onPress={(e) => { if (isBar) e.stopPropagation(); onToggle(isBar ? e : undefined); }}
         hitSlop={20}
-        style={isBar ? [styles.playButton, { marginHorizontal: 12 }] : undefined}
+        style={isBar ? [styles.playButton, { marginHorizontal: showSkipButtons ? 12 : 0 }] : undefined}
       >
         <Animated.View style={animatedButtonStyle}>
           <Ionicons name={playing ? 'pause' : 'play'} size={32} color="#fff" />
         </Animated.View>
       </Pressable>
-      <Pressable
-        onPress={(e) => { if (isBar) e.stopPropagation(); onSkipForward(isBar ? e : undefined); }}
-        hitSlop={isBar ? undefined : 10}
-        style={isBar ? styles.controlButton : undefined}
-      >
-        <Ionicons name="play-skip-forward" size={24} color="#fff" />
-      </Pressable>
+      {showSkipButtons && (
+        <Pressable
+          onPress={(e) => { if (isBar) e.stopPropagation(); onSkipForward(isBar ? e : undefined); }}
+          hitSlop={isBar ? undefined : 10}
+          style={isBar ? styles.controlButton : undefined}
+        >
+          <Ionicons name="play-skip-forward" size={24} color="#fff" />
+        </Pressable>
+      )}
     </View>
   );
 });
@@ -137,6 +140,8 @@ export const MiniPlayer: React.FC = () => {
   const storePlaying = usePlayerStore(state => state.isPlaying);
   const miniPlayerStyle = useSettingsStore(state => state.miniPlayerStyle);
   const libraryFocusMode = useSettingsStore(state => state.libraryFocusMode);
+  const islandBgMode = useSettingsStore(state => state.islandBgMode);
+  const classicBarBgMode = useSettingsStore(state => state.classicBarBgMode);
   const navigation = useNavigation();
   
   // Use store instead of navigation state to avoid root-level crashes
@@ -216,10 +221,27 @@ export const MiniPlayer: React.FC = () => {
     else if (currentSong !== displayedSong) {
          setDisplayedSong(currentSong);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong, expanded, isIsland]);
     
   // Create a "vignette" theme for island: Black -> Color -> Black
   const mainColor = gradientColors[1] || gradientColors[0];
+
+  // Per-style background mode (island vs classic bar each have their own setting)
+  const activeBgMode = isIsland ? islandBgMode : classicBarBgMode;
+  const useThemeBg = activeBgMode !== 'album-art';
+
+  const themePlayerColors: [string, string, string] = (() => {
+    switch (activeBgMode) {
+      case 'song-gradient': return [gradientColors[0] || '#111', gradientColors[1] || '#333', gradientColors[2] || gradientColors[0] || '#111'] as [string, string, string];
+      case 'purest-black': return ['#000000', '#000000', '#000000'];
+      case 'grey':         return ['#121212', '#212121', '#121212'];
+      case 'theme-blue':   return ['#0A1628', '#1A3A6B', '#2F8CFF'];
+      case 'theme-subtle': return ['#0E1722', '#1E2A3A', '#0E1722'];
+      case 'aurora':       return ['#020A16', '#EA7980', '#1D728F'];
+      default:             return ['#080808', '#0A0A0A', '#080808'];
+    }
+  })();
 
   // Seek lock timeout (isSeeking shared value lives in positionBus)
   const seekLockTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -228,7 +250,7 @@ export const MiniPlayer: React.FC = () => {
 
 
   // ProgressBar width state (kept for classic mode)
-  const [progressBarWidth, setProgressBarWidth] = useState(0);
+  // const [progressBarWidth] = useState(0);
   // Cleanup seekLock
   useEffect(() => {
     return () => {
@@ -268,6 +290,7 @@ export const MiniPlayer: React.FC = () => {
     };
     
     syncAudio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.id, player, loadedAudioId, setLoadedAudioId, setMiniPlayerHidden, setStorePlaying]);
 
   // Auto-close removed: Lyrics persist across songs
@@ -325,26 +348,19 @@ export const MiniPlayer: React.FC = () => {
     };
   });
 
-  // Classic Height Animation — three stages: collapsed → half (50%) → full (95%)
+  // Classic Height Animation — three stages: collapsed → half → full (95%)
   const animatedClassicStyle = useAnimatedStyle(() => {
     if (isIsland) return {};
-    const halfHeight = screenHeight * 0.5;
+    const halfHeight = screenHeight * 0.54;   // slightly taller so it fully clears "All Songs"
     const fullHeight = screenHeight * 0.915;
-    const currentHeight = interpolate(
-      classicFullProgress.value,
-      [0, 1],
-      [
-        interpolate(expansionProgress.value, [0, 1], [70, halfHeight], Extrapolation.CLAMP),
-        fullHeight
-      ],
-      Extrapolation.CLAMP
-    );
-    return { height: currentHeight };
+    const baseHeight = interpolate(expansionProgress.value, [0, 1], [70, halfHeight], Extrapolation.CLAMP);
+    const fullExtension = interpolate(classicFullProgress.value, [0, 1], [0, fullHeight - halfHeight], Extrapolation.CLAMP);
+    return { height: baseHeight + fullExtension };
   });
   
-  // Classic Lyrics Opacity (Expansion * Transition)
+  // Classic Lyrics Opacity — fade in early so they appear smoothly as the bar grows
   const animatedClassicLyricsStyle = useAnimatedStyle(() => {
-    const expandOp = interpolate(expansionProgress.value, [0.5, 1], [0, 1], Extrapolation.CLAMP);
+    const expandOp = interpolate(expansionProgress.value, [0.25, 0.75], [0, 1], Extrapolation.CLAMP);
     return {
       opacity: expandOp * transitionOpacity.value,
     };
@@ -392,9 +408,9 @@ export const MiniPlayer: React.FC = () => {
 
 
   
-  const skipForward = useCallback((e?: any) => {
+  const skipForward = useCallback(async (e?: any) => {
     e?.stopPropagation();
-    usePlayerStore.getState().nextInPlaylist();
+    await usePlayerStore.getState().nextInPlaylist();
   }, []);
 
   const skipBackward = useCallback((e?: any) => {
@@ -412,17 +428,6 @@ export const MiniPlayer: React.FC = () => {
         usePlayerStore.getState().previousInPlaylist();
     }
   }, [player]);
-
-  const handleSeekPress = async (e: any) => {
-      e.stopPropagation();
-      if (!player || durationSV.value <= 0 || progressBarWidth <= 0) return;
-      const { locationX } = e.nativeEvent;
-      const percentage = locationX / progressBarWidth;
-      const seekTime = percentage * durationSV.value;
-      const wasPlaying = usePlayerStore.getState().isPlaying;
-      await player.seekTo(seekTime);
-      if (wasPlaying) player.play();
-  };
 
   // -------------------------------------------------------------------------
   // Capture the JS-state flags we need inside the worklet as shared values.
@@ -468,13 +473,21 @@ export const MiniPlayer: React.FC = () => {
         // Classic Mode: two-stage expansion (half → full)
         if (!classicFullExpandedSV.value) {
           if (event.translationY < 0) {
+            // Drag up to expand to full
             classicFullProgress.value = Math.min(
               Math.abs(event.translationY) / 200,
               1,
             );
+          } else if (event.translationY > 0) {
+            // Drag down to collapse from half
+            expansionProgress.value = Math.max(
+              1 - event.translationY / 200,
+              0,
+            );
           }
         } else {
           if (event.translationY > 0) {
+            // Drag down from full to half
             classicFullProgress.value =
               1 - Math.min(event.translationY / 200, 1);
           }
@@ -511,6 +524,17 @@ export const MiniPlayer: React.FC = () => {
       'worklet';
       const isHoriz =
         Math.abs(event.translationX) > Math.abs(event.translationY);
+
+      // Collapsed (both styles) — swipe left/right to skip
+      if (!expandedSV.value && isHoriz) {
+        if (event.translationX < -60 || event.velocityX < -600) {
+          runOnJS(skipForward)();
+        } else if (event.translationX > 60 || event.velocityX > 600) {
+          runOnJS(skipBackward)();
+        }
+        return;
+      }
+
       if (
         !isIslandSV.value &&
         expandedSV.value &&
@@ -598,12 +622,9 @@ export const MiniPlayer: React.FC = () => {
       return;
     }
     
-    expansionProgress.value = withSpring(1, {
-      damping: 14,
-      stiffness: 150,
-      mass: 0.6
-    });
+    expansionProgress.value = withSpring(1);
     setExpanded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
   const openNowPlaying = useCallback(() => {
@@ -619,6 +640,7 @@ export const MiniPlayer: React.FC = () => {
       setFullLyricExpanded(false);
       setClassicFullExpanded(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong, setMiniPlayerHidden, navigation]);
 
   const handleLyricPress = useCallback((timestamp: number) => {
@@ -677,6 +699,7 @@ export const MiniPlayer: React.FC = () => {
       
       <AnimatedPressable 
         onPress={!expanded ? toggleExpand : undefined} 
+        pointerEvents={(!isIsland && expanded) ? 'box-none' : 'auto'}
         style={[
           styles.content, 
           isIsland && styles.islandContent,
@@ -689,22 +712,27 @@ export const MiniPlayer: React.FC = () => {
           !isIsland && { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 0 } // Override row layout for Classic
         ]}
       >
-        {/* Dynamic Background for Classic Mode (Same logic as Island) */}
+        {/* Dynamic Background for Classic Mode */}
         {!isIsland && (
            <View style={StyleSheet.absoluteFill}>
-               {/* 1. Blurred Background Image */}
-               {currentSong.coverImageUri ? (
-                  <Image 
-                    source={{ uri: currentSong.coverImageUri }} 
+               {useThemeBg ? (
+                  /* Theme palette gradient */
+                  <LinearGradient
+                    colors={themePlayerColors}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+               ) : currentSong.coverImageUri ? (
+                  <Image
+                    source={{ uri: currentSong.coverImageUri }}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
-                    blurRadius={30} // High blur for abstract background
+                    blurRadius={30}
                   />
                ) : (
                   <View style={[StyleSheet.absoluteFill, { backgroundColor: '#111' }]} />
                )}
-
-               {/* 2. Vignette / Dark Overlay to make text readable */}
+               {/* Vignette overlay for text readability */}
                <LinearGradient
                   colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
                   style={StyleSheet.absoluteFill}
@@ -714,17 +742,23 @@ export const MiniPlayer: React.FC = () => {
 
         {isIsland && (
            <View style={[StyleSheet.absoluteFill, { borderRadius: expanded ? 40 : 30, overflow: 'hidden' }]}>
-              {/* 1. Blurred Background Image */}
-               {!libraryFocusMode && currentSong.coverImageUri ? (
-                  <Image 
-                    source={{ uri: currentSong.coverImageUri }} 
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover" // Ensure colors spread to edges
-                    blurRadius={22} // Reduced slightly for clearer center
-                  />
-               ) : (
-                  <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
-               )}
+              {useThemeBg ? (
+                 /* Theme palette gradient */
+                 <LinearGradient
+                   colors={themePlayerColors}
+                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                   style={StyleSheet.absoluteFill}
+                 />
+              ) : !libraryFocusMode && currentSong.coverImageUri ? (
+                 <Image
+                   source={{ uri: currentSong.coverImageUri }}
+                   style={StyleSheet.absoluteFill}
+                   resizeMode="cover"
+                   blurRadius={22}
+                 />
+              ) : (
+                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
+              )}
 
               {/* 2. Vignette / Dark Overlay to make text pop */}
               <LinearGradient
@@ -806,7 +840,7 @@ export const MiniPlayer: React.FC = () => {
                                     style={styles.trayLyricText}
                                     numberOfLines={2}
                                 >
-                                    {!!currentLyricText ? currentLyricText : ''}
+                                    {currentLyricText || ''}
                                 </Text>
                             </View>
                         ) : (
@@ -844,9 +878,10 @@ export const MiniPlayer: React.FC = () => {
                     </Pressable>
                 </GestureDetector>
             </View>
-        ) : (
-            // COLLAPSED / CLASSIC VIEW
-            <View style={{ width: '100%', height: '100%' }}>
+        ) : isIsland ? (
+            // ISLAND COLLAPSED
+            <GestureDetector gesture={panGesture}>
+              <View style={{ width: '100%', height: '100%', flexDirection: 'row' }}>
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -862,9 +897,6 @@ export const MiniPlayer: React.FC = () => {
                         onPress={openNowPlaying}
                         onBodyPress={toggleExpand}
                     />
-                    
-                    {/* Controls */}
-                    {isIsland ? (
                     <PlaybackControls
                         variant="island-collapsed"
                         playing={storePlaying}
@@ -873,49 +905,64 @@ export const MiniPlayer: React.FC = () => {
                         onSkipForward={skipForward}
                         animatedButtonStyle={animatedButtonStyle}
                     />
-                    ) : (
-                    /* Bar Mode Controls */
-                    <PlaybackControls
-                        variant="bar"
-                        playing={storePlaying}
-                        onToggle={togglePlay}
-                        onSkipBack={skipBackward}
-                        onSkipForward={skipForward}
-                        animatedButtonStyle={animatedButtonStyle}
-                    />
-                    )}
                 </View>
+              </View>
+            </GestureDetector>
+        ) : (
+            // CLASSIC UNIFIED — always column layout; height + opacity animation controls visibility
+            <GestureDetector gesture={panGesture}>
+                <View style={{ width: '100%', height: '100%', flexDirection: 'column' }}>
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        height: 70,
+                        paddingHorizontal: 16,
+                        width: '100%'
+                    }}>
+                        <TrackInfo
+                            title={currentSong.title}
+                            artist={currentSong.artist || ''}
+                            coverImageUri={currentSong.coverImageUri}
+                            isIsland={isIsland}
+                            onPress={openNowPlaying}
+                            onBodyPress={toggleExpand}
+                        />
+                        <PlaybackControls
+                            variant="bar"
+                            playing={storePlaying}
+                            onToggle={togglePlay}
+                            onSkipBack={skipBackward}
+                            onSkipForward={skipForward}
+                            animatedButtonStyle={animatedButtonStyle}
+                            showSkipButtons={expanded}
+                        />
+                    </View>
 
-                {/* Classic Expanded Lyrics View */}
-                {!isIsland && expanded && (
-                    <GestureDetector gesture={panGesture}>
-                        <Animated.View style={[styles.classicLyricsContainer, animatedClassicLyricsStyle]}>
-                            <SynchronizedLyrics
-                                lyrics={lyricsToUse || []}
-                                currentTime={positionSV}
-                                onLyricPress={async (time) => {
-                                    if (player) {
-                                        const wasPlaying = usePlayerStore.getState().isPlaying;
-                                        await player.seekTo(time);
-                                        if (wasPlaying) player.play();
-                                    }
-                                }}
-                                isUserScrolling={false}
-                                scrollEnabled={false}
-                                textStyle={styles.expandedLyricText}
-                                activeLinePosition={0.4}
-                                songTitle={currentSong?.title}
-                                highlightColor={gradientColors[0]}
-                                topSpacerHeight={50}
-                                bottomSpacerHeight={50}
-                                expandedAt={lyricExpandedAt}
-                            />
-                            {/* Close Indicator */}
-                             <View style={styles.dragHandle} />
-                        </Animated.View>
-                    </GestureDetector>
-                )}
-            </View>
+                    <Animated.View style={[styles.classicLyricsContainer, animatedClassicLyricsStyle]}>
+                        <SynchronizedLyrics
+                            lyrics={lyricsToUse || []}
+                            currentTime={positionSV}
+                            onLyricPress={async (time) => {
+                                if (player) {
+                                    const wasPlaying = usePlayerStore.getState().isPlaying;
+                                    await player.seekTo(time);
+                                    if (wasPlaying) player.play();
+                                }
+                            }}
+                            isUserScrolling={false}
+                            scrollEnabled={false}
+                            textStyle={styles.expandedLyricText}
+                            activeLinePosition={0.4}
+                            songTitle={currentSong?.title}
+                            highlightColor={gradientColors[0]}
+                            topSpacerHeight={50}
+                            bottomSpacerHeight={50}
+                            expandedAt={lyricExpandedAt}
+                        />
+                        <View style={styles.dragHandle} />
+                    </Animated.View>
+                </View>
+            </GestureDetector>
         )}
       </AnimatedPressable>
     </View>

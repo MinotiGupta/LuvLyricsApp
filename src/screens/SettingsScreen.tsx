@@ -26,7 +26,11 @@ import { TabScreenProps } from '../types/navigation';
 import { usePlayerStore } from '../store/playerStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { CustomAlert } from '../components/CustomAlert';
-import { Colors } from '../constants/colors';
+import { useThemeColors, useIsDark } from '../contexts/ThemeContext';
+import { getGradientColors } from '../constants/gradients';
+import { useDailyStatsStore } from '../store/dailyStatsStore';
+import { AuroraHeader } from '../components/AuroraHeader';
+import { Colors, DarkColors } from '../constants/colors';
 import { exportAllSongs, shareExportedFile, importSongsFromJson } from '../utils/exportImport';
 import { clearAllData } from '../database/queries';
 import { useLuvsPreferencesStore } from '../store/luvsPreferencesStore';
@@ -34,10 +38,27 @@ import { useDesktopBridgeSettingsStore } from '../store/desktopBridgeSettingsSto
 import { desktopBridgeService } from '../services/DesktopBridgeService';
 import { trustedPairingService, TrustedDesktopRecord } from '../services/TrustedPairingService';
 import { useSongsStore } from '../store/songsStore';
+import { usePlaylistStore } from '../store/playlistStore';
 import { scanAudioFiles, convertAudioFileToSong } from '../services/mediaScanner';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+
+// ─── Mini player background options ──────────────────────────────────────────
+
+type MiniBgMode = 'album-art' | 'song-gradient' | 'aurora' | 'purest-black' | 'grey' | 'theme-subtle' | 'theme-blue';
+
+const MINI_BG_MODES: MiniBgMode[] = ['album-art', 'song-gradient', 'aurora', 'purest-black', 'grey', 'theme-subtle', 'theme-blue'];
+
+const MINI_BG_LABELS: Record<MiniBgMode, string> = {
+  'album-art':     'Album Art',
+  'song-gradient': 'Song Gradient',
+  'aurora':        'Aurora',
+  'purest-black':  'Pure Black',
+  'grey':          'Spotify Grey',
+  'theme-subtle':  'Subtle Dark',
+  'theme-blue':    'LuvLyrics Blue',
+};
 
 // ─── Bottom Sheet ────────────────────────────────────────────────────────────
 
@@ -54,6 +75,9 @@ const BottomSheet: React.FC<BottomSheetProps> = ({ visible, title, onClose, chil
   const panY = React.useRef(new Animated.Value(0)).current;
   const [modalVisible, setModalVisible] = React.useState(false);
   const isClosing = React.useRef(false);
+  const isDark = useIsDark();
+  const colors = useThemeColors();
+  const dividerColor = useSettingsDividerColor();
 
   const closeOnce = React.useCallback(() => {
     if (isClosing.current) return;
@@ -101,18 +125,18 @@ const BottomSheet: React.FC<BottomSheetProps> = ({ visible, title, onClose, chil
       <Animated.View style={[StyleSheet.absoluteFill, bs.backdrop, { opacity: overlayOpacity }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={closeOnce} />
       </Animated.View>
-      <Animated.View style={[bs.sheet, { transform: [{ translateY: Animated.add(sheetTranslateY, panY) }] }]} {...panResponder.panHandlers}>
+      <Animated.View style={[bs.sheet, { backgroundColor: isDark ? '#1C1C1E' : colors.card, transform: [{ translateY: Animated.add(sheetTranslateY, panY) }] }]} {...panResponder.panHandlers}>
         <View style={bs.handle} />
-        <View style={bs.header}>
-          <Text style={bs.title}>{title}</Text>
+        <View style={[bs.header, { borderBottomColor: dividerColor }]}>
+          <Text style={[bs.title, { color: colors.textPrimary }]}>{title}</Text>
           <Pressable onPress={onClose} hitSlop={12}>
-            <Ionicons name="close" size={22} color={Colors.textSecondary} />
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
         <ScrollView bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={bs.content}>
           {children}
         </ScrollView>
-        <View style={bs.sheetFloor} />
+        <View style={[bs.sheetFloor, { backgroundColor: isDark ? '#1C1C1E' : colors.card }]} />
       </Animated.View>
     </Modal>
   );
@@ -220,6 +244,27 @@ const LuvsLanguagesModal = ({ visible, onClose }: { visible: boolean; onClose: (
 
 // ─── Reusable rows ───────────────────────────────────────────────────────────
 
+const useSettingsDividerColor = () => {
+  const colors = useThemeColors();
+  const isDark = useIsDark();
+  const libraryBackgroundMode = useSettingsStore(state => state.libraryBackgroundMode);
+
+  if (!isDark) return colors.divider;
+  switch (libraryBackgroundMode) {
+    case 'purest-black':
+    case 'black':
+      return 'rgba(255,255,255,0.08)';
+    case 'grey':
+      return '#282828';
+    case 'theme-subtle':
+      return '#1E2A3A';
+    case 'theme-blue':
+      return '#1C3E6B';
+    default:
+      return colors.divider;
+  }
+};
+
 interface SettingsRowProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -228,16 +273,20 @@ interface SettingsRowProps {
   showChevron?: boolean;
 }
 
-const SettingsRow: React.FC<SettingsRowProps> = ({ icon, label, value, onPress, showChevron = true }) => (
-  <Pressable style={styles.settingsRow} onPress={onPress}>
-    <Ionicons name={icon} size={22} color={Colors.textSecondary} />
-    <Text style={styles.settingsLabel}>{label}</Text>
-    <View style={styles.settingsValue}>
-      {value ? <Text style={styles.settingsValueText}>{value}</Text> : null}
-      {showChevron && <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />}
-    </View>
-  </Pressable>
-);
+const SettingsRow: React.FC<SettingsRowProps> = ({ icon, label, value, onPress, showChevron = true }) => {
+  const dividerColor = useSettingsDividerColor();
+  const colors = useThemeColors();
+  return (
+    <Pressable style={[styles.settingsRow, { borderBottomColor: dividerColor }]} onPress={onPress}>
+      <Ionicons name={icon} size={22} color={colors.textSecondary} />
+      <Text style={[styles.settingsLabel, { color: colors.textPrimary }]}>{label}</Text>
+      <View style={styles.settingsValue}>
+        {value ? <Text style={[styles.settingsValueText, { color: colors.textSecondary }]}>{value}</Text> : null}
+        {showChevron && <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
+      </View>
+    </Pressable>
+  );
+};
 
 interface SettingsRowSwitchProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -246,13 +295,17 @@ interface SettingsRowSwitchProps {
   onToggle: (v: boolean) => void;
 }
 
-const SettingsRowSwitch: React.FC<SettingsRowSwitchProps> = ({ icon, label, value, onToggle }) => (
-  <View style={styles.settingsRow}>
-    <Ionicons name={icon} size={22} color={Colors.textSecondary} />
-    <Text style={styles.settingsLabel}>{label}</Text>
-    <Switch value={value} onValueChange={onToggle} trackColor={{ false: '#39393D', true: '#34C759' }} thumbColor="#fff" />
-  </View>
-);
+const SettingsRowSwitch: React.FC<SettingsRowSwitchProps> = ({ icon, label, value, onToggle }) => {
+  const dividerColor = useSettingsDividerColor();
+  const colors = useThemeColors();
+  return (
+    <View style={[styles.settingsRow, { borderBottomColor: dividerColor }]}>
+      <Ionicons name={icon} size={22} color={colors.textSecondary} />
+      <Text style={[styles.settingsLabel, { color: colors.textPrimary }]}>{label}</Text>
+      <Switch value={value} onValueChange={onToggle} trackColor={{ false: '#39393D', true: '#34C759' }} thumbColor="#fff" />
+    </View>
+  );
+};
 
 interface MenuRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -263,18 +316,51 @@ interface MenuRowProps {
   isLast?: boolean;
 }
 
-const MenuRow: React.FC<MenuRowProps> = ({ icon, iconColor, label, badge, onPress, isLast }) => (
-  <Pressable style={[styles.menuRow, isLast && styles.menuRowLast]} onPress={onPress}>
-    <View style={[styles.menuIcon, { backgroundColor: iconColor + '22' }]}>
-      <Ionicons name={icon} size={20} color={iconColor} />
-    </View>
-    <Text style={styles.menuLabel}>{label}</Text>
-    <View style={styles.menuRight}>
-      {badge ? <Text style={styles.menuBadge}>{badge}</Text> : null}
-      <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
-    </View>
-  </Pressable>
-);
+const MenuRow: React.FC<MenuRowProps> = ({ icon, iconColor, label, badge, onPress, isLast }) => {
+  const dividerColor = useSettingsDividerColor();
+  const colors = useThemeColors();
+  return (
+    <Pressable style={[styles.menuRow, { borderBottomColor: dividerColor }, isLast && styles.menuRowLast]} onPress={onPress}>
+      <View style={[styles.menuIcon, { backgroundColor: iconColor + '22' }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
+      </View>
+      <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>{label}</Text>
+      <View style={styles.menuRight}>
+        {badge ? <Text style={[styles.menuBadge, { color: colors.textSecondary }]}>{badge}</Text> : null}
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      </View>
+    </Pressable>
+  );
+};
+
+// ─── Pinnable items definition ───────────────────────────────────────────────
+
+type PinId = 'appearance' | 'playback' | 'library' | 'discovery' | 'miniplayer' | 'desktop' | 'data' | 'about' | 'export' | 'import' | 'scan';
+
+const PINNABLE_ITEMS: Record<PinId, {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  label: string;
+  section: 'personalization' | 'system' | 'tools';
+}> = {
+  appearance:  { icon: 'moon-outline',              iconColor: '#A78BFA', label: 'Appearance',   section: 'personalization' },
+  playback:    { icon: 'play-circle-outline',        iconColor: '#34C759', label: 'Playback',     section: 'personalization' },
+  library:     { icon: 'folder-open-outline',        iconColor: '#FF9F0A', label: 'Library',      section: 'personalization' },
+  discovery:   { icon: 'globe-outline',              iconColor: '#30D158', label: 'Discovery',    section: 'personalization' },
+  miniplayer:  { icon: 'radio-outline',              iconColor: '#FF6B6B', label: 'Mini Player',  section: 'personalization' },
+  desktop:     { icon: 'desktop-outline',            iconColor: '#0A84FF', label: 'Desktop',      section: 'system' },
+  data:        { icon: 'trash-outline',              iconColor: '#FF453A', label: 'Data',         section: 'system' },
+  about:       { icon: 'information-circle-outline', iconColor: '#8E8E93', label: 'About',        section: 'system' },
+  export:      { icon: 'download-outline',           iconColor: '#A78BFA', label: 'Export',       section: 'tools' },
+  import:      { icon: 'cloud-upload-outline',       iconColor: '#F472B6', label: 'Import',       section: 'tools' },
+  scan:        { icon: 'musical-notes-outline',      iconColor: '#60A5FA', label: 'Scan Audio',   section: 'tools' },
+};
+
+const PIN_SECTIONS: { key: 'personalization' | 'system' | 'tools'; label: string }[] = [
+  { key: 'personalization', label: 'PERSONALIZATION' },
+  { key: 'system',          label: 'SYSTEM' },
+  { key: 'tools',           label: 'TOOLS' },
+];
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
@@ -282,7 +368,73 @@ type Props = TabScreenProps<'Settings'>;
 
 const SettingsScreen: React.FC<Props> = () => {
   const settings = useSettingsStore();
-  const { fetchSongs, addSong, songs, deleteSong } = useSongsStore();
+  const { fetchSongs, addSong, songs, deleteSong, getSong } = useSongsStore();
+  const applyThemeToOtherPages = useSettingsStore(state => state.applyThemeToOtherPages);
+  const libraryBackgroundMode = useSettingsStore(state => state.libraryBackgroundMode);
+  const isDark = useIsDark();
+  const colors = useThemeColors();
+  const dividerColor = useSettingsDividerColor();
+
+  const isSolidBg = libraryBackgroundMode === 'purest-black'
+    || libraryBackgroundMode === 'grey'
+    || libraryBackgroundMode === 'theme-subtle'
+    || libraryBackgroundMode === 'black'
+    || libraryBackgroundMode === 'theme-blue';
+  const currentSongId = usePlayerStore(state => state.currentSongId);
+  const playerCurrentCover = usePlayerStore(state => state.currentSong?.coverImageUri);
+  const playerCurrentGradient = usePlayerStore(state => state.currentSong?.gradientId);
+
+  const [activeThemeColors, setActiveThemeColors] = React.useState<string[] | undefined>(undefined);
+  const [activeImageUri, setActiveImageUri] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!applyThemeToOtherPages) {
+      setActiveThemeColors(undefined);
+      setActiveImageUri(null);
+      return;
+    }
+    const updateTheme = async () => {
+      let themeColors: string[] | undefined;
+      let image: string | null = null;
+      if (libraryBackgroundMode === 'current') {
+        if (currentSongId) {
+          image = playerCurrentCover || null;
+          if (!image && playerCurrentGradient) {
+            themeColors = playerCurrentGradient === 'dynamic' ? ['#f7971e', '#ffd200', '#ff6b35'] : getGradientColors(playerCurrentGradient);
+          }
+        }
+      } else if (libraryBackgroundMode === 'daily') {
+        const topId = useDailyStatsStore.getState().getTopSongOfYesterday() || useDailyStatsStore.getState().getTopSongOfToday();
+        if (topId) {
+          const song = songs.find(s => s.id === topId) || await getSong(topId);
+          if (song) {
+            image = song.coverImageUri || null;
+            if (!image && song.gradientId) {
+              themeColors = song.gradientId === 'dynamic' ? ['#f7971e', '#ffd200', '#ff6b35'] : getGradientColors(song.gradientId);
+            }
+          }
+        }
+      } else if (libraryBackgroundMode === 'black') {
+        themeColors = ['#050505', '#050505', '#050505'];
+        image = null;
+      } else if (libraryBackgroundMode === 'purest-black') {
+        themeColors = ['#000000', '#000000', '#000000'];
+        image = null;
+      } else if (libraryBackgroundMode === 'grey') {
+        themeColors = ['#121212', '#212121', '#121212'];
+        image = null;
+      } else if (libraryBackgroundMode === 'theme-subtle') {
+        themeColors = ['#0E1722', '#1E2A3A', '#0E1722'];
+        image = null;
+      } else if (libraryBackgroundMode === 'theme-blue') {
+        themeColors = ['#0A1628', '#1A3A6B', '#2F8CFF'];
+        image = null;
+      }
+      setActiveThemeColors(themeColors); setActiveImageUri(image);
+    };
+    updateTheme();
+  }, [applyThemeToOtherPages, libraryBackgroundMode, currentSongId, playerCurrentCover, playerCurrentGradient, songs, songs.length, getSong]);
+
   const [isImporting, setIsImporting] = React.useState(false);
   const [profileName, setProfileName] = React.useState('LyricFlow User');
   const [profileImage, setProfileImage] = React.useState<string | null>(null);
@@ -293,6 +445,7 @@ const SettingsScreen: React.FC<Props> = () => {
   const [selectedFiles, setSelectedFiles] = React.useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = React.useState('');
   const setMiniPlayerHidden = usePlayerStore(state => state.setMiniPlayerHidden);
+  const likedCount = usePlaylistStore(state => state.likedSongIds.size);
   const [hiddenSongsVisible, setHiddenSongsVisible] = React.useState(false);
   const { hiddenSongs, fetchHiddenSongs, hideSong: unhideSong } = useSongsStore();
   const [luvsLangModalVisible, setLuvsLangModalVisible] = React.useState(false);
@@ -303,6 +456,9 @@ const SettingsScreen: React.FC<Props> = () => {
   const [trustedDesktops, setTrustedDesktops] = React.useState<TrustedDesktopRecord[]>([]);
   const [activeSheet, setActiveSheet] = React.useState<string | null>(null);
   const closeSheet = React.useCallback(() => setActiveSheet(null), []);
+  const quickPins = useSettingsStore(state => state.quickPins);
+  const setQuickPins = useSettingsStore(state => state.setQuickPins);
+  const [pinPickerSlot, setPinPickerSlot] = React.useState<number | null>(null);
 
   const [alertConfig, setAlertConfig] = React.useState<{
     visible: boolean;
@@ -470,59 +626,127 @@ const SettingsScreen: React.FC<Props> = () => {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  return (
-    <View style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.content}>
+  const cardBg = isDark ? 'rgba(255,255,255,0.06)' : colors.card;
+  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : colors.border;
 
-          {/* Profile */}
-          <View style={styles.profileSection}>
-            <Pressable style={styles.avatar} onPress={handleEditAvatar}>
+  return (
+    <View style={[styles.container, { backgroundColor: isDark ? '#000' : colors.background }]}>
+      {isDark && applyThemeToOtherPages && (
+        <View style={StyleSheet.absoluteFill}>
+          <AuroraHeader palette="settings" colors={activeThemeColors} imageUri={activeImageUri} isSolid={isSolidBg} />
+        </View>
+      )}
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+          {/* ── Screen title ── */}
+          <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Settings</Text>
+
+          {/* ── Profile card ── */}
+          <View style={[styles.profileCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            {/* Avatar */}
+            <Pressable
+              style={[styles.avatar, {
+                backgroundColor: isDark ? 'rgba(6,21,43,1)' : colors.cardHover,
+                borderColor: cardBorder,
+              }]}
+              onPress={handleEditAvatar}
+            >
               {profileImage
                 ? <Image source={{ uri: profileImage }} style={styles.avatarImage} />
-                : <Ionicons name="person" size={40} color={Colors.textSecondary} />}
-              <View style={styles.editBadge}>
-                <Ionicons name="camera" size={14} color="#000" />
+                : <Ionicons name="person" size={34} color={isDark ? 'rgba(255,255,255,0.4)' : colors.textMuted} />}
+              <View style={[styles.editBadge, { borderColor: isDark ? '#000' : colors.background }]}>
+                <Ionicons name="camera" size={12} color="#000" />
               </View>
             </Pressable>
-            <Pressable onPress={handleEditName}>
-              <View style={styles.nameContainer}>
-                <Text style={styles.profileName}>{profileName}</Text>
-                <Ionicons name="create-outline" size={16} color={Colors.textSecondary} style={{ marginLeft: 6 }} />
+
+            {/* Name + stats */}
+            <View style={styles.profileRight}>
+              <Pressable onPress={handleEditName} style={styles.nameRow}>
+                <Text style={[styles.profileName, { color: colors.textPrimary }]} numberOfLines={1}>{profileName}</Text>
+                <Ionicons name="pencil-outline" size={14} color={colors.textMuted} style={{ marginLeft: 6 }} />
+              </Pressable>
+              <Text style={[styles.profileSub, { color: colors.textMuted }]}>Offline · Privacy First</Text>
+
+              {/* Stats strip */}
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{songs.length}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Songs</Text>
+                </View>
+                <View style={[styles.statDivider, { backgroundColor: cardBorder }]} />
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{likedCount}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Liked</Text>
+                </View>
+                <View style={[styles.statDivider, { backgroundColor: cardBorder }]} />
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{hiddenSongs.length}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Hidden</Text>
+                </View>
               </View>
-            </Pressable>
-            <Text style={styles.profileEmail}>Offline Mode · Privacy First</Text>
+            </View>
           </View>
 
-          {/* Quick Actions */}
+          {/* ── Quick pins ── */}
           <View style={styles.quickActions}>
-            <Pressable style={styles.quickAction} onPress={handleExport}>
-              <Ionicons name="download-outline" size={26} color="#A78BFA" />
-              <Text style={styles.quickActionText}>Export</Text>
-            </Pressable>
-            <Pressable style={styles.quickAction} onPress={handleImport}>
-              <Ionicons name="cloud-upload-outline" size={26} color="#F472B6" />
-              <Text style={styles.quickActionText}>Import</Text>
-            </Pressable>
-            <Pressable style={styles.quickAction}>
-              <Ionicons name="time-outline" size={26} color="#60A5FA" />
-              <Text style={styles.quickActionText}>History</Text>
-            </Pressable>
+            {(quickPins as string[]).map((pinId, slotIndex) => {
+              const item = PINNABLE_ITEMS[pinId as PinId];
+              if (!item) return null;
+              return (
+                <Pressable
+                  key={slotIndex}
+                  style={[styles.quickAction, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                  onPress={() => {
+                    if (pinId === 'export') handleExport();
+                    else if (pinId === 'import') handleImport();
+                    else if (pinId === 'scan') handleImportLocalAudio();
+                    else setActiveSheet(pinId);
+                  }}
+                  onLongPress={() => setPinPickerSlot(slotIndex)}
+                  delayLongPress={400}
+                >
+                  <View style={[styles.quickIcon, { backgroundColor: item.iconColor + '22' }]}>
+                    <Ionicons name={item.icon} size={20} color={item.iconColor} />
+                  </View>
+                  <Text style={[styles.quickActionText, { color: colors.textPrimary }]}>{item.label}</Text>
+                  <View style={styles.quickEditHint}>
+                    <Ionicons name="ellipsis-horizontal" size={12} color={colors.textMuted} />
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
+          <Text style={[styles.quickHint, { color: colors.textMuted }]}>Hold any shortcut to customise</Text>
 
-          {/* Menu List */}
-          <View style={styles.menuList}>
+          {/* ── Section: Personalization ── */}
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>PERSONALIZATION</Text>
+          <View style={[styles.menuGroup, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <MenuRow icon="moon-outline" iconColor="#A78BFA" label="Appearance" onPress={() => setActiveSheet('appearance')} />
             <MenuRow icon="play-circle-outline" iconColor="#34C759" label="Playback" onPress={() => setActiveSheet('playback')} />
+            <MenuRow icon="radio-outline" iconColor="#FF6B6B" label="Mini Player" onPress={() => setActiveSheet('miniplayer')} />
             <MenuRow icon="folder-open-outline" iconColor="#FF9F0A" label="Library" onPress={() => setActiveSheet('library')} />
-            <MenuRow icon="globe-outline" iconColor="#30D158" label="Discovery" onPress={() => setActiveSheet('discovery')} />
+            <MenuRow icon="globe-outline" iconColor="#30D158" label="Discovery" onPress={() => setActiveSheet('discovery')} isLast />
+          </View>
+
+          {/* ── Section: System ── */}
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>SYSTEM</Text>
+          <View style={[styles.menuGroup, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <MenuRow
               icon="desktop-outline" iconColor="#0A84FF" label="Desktop Connect"
               badge={desktopConnectEnabled ? 'On' : 'Off'}
               onPress={() => setActiveSheet('desktop')}
             />
             <MenuRow icon="trash-outline" iconColor="#FF453A" label="Data" onPress={() => setActiveSheet('data')} />
-            <MenuRow icon="information-circle-outline" iconColor="#636366" label="About" onPress={() => setActiveSheet('about')} isLast />
+            <MenuRow icon="information-circle-outline" iconColor="#8E8E93" label="About" onPress={() => setActiveSheet('about')} isLast />
+          </View>
+
+          {/* ── Section: Tools ── */}
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>TOOLS</Text>
+          <View style={[styles.menuGroup, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <MenuRow icon="download-outline" iconColor="#A78BFA" label="Export Library" onPress={handleExport} />
+            <MenuRow icon="cloud-upload-outline" iconColor="#F472B6" label="Import Backup" onPress={handleImport} />
+            <MenuRow icon="musical-notes-outline" iconColor="#60A5FA" label="Scan Local Audio" onPress={handleImportLocalAudio} isLast />
           </View>
 
         </ScrollView>
@@ -543,13 +767,6 @@ const SettingsScreen: React.FC<Props> = () => {
       <BottomSheet visible={activeSheet === 'playback'} title="Playback" onClose={closeSheet}>
         <SettingsRowSwitch icon="play-outline" label="Auto-Scroll Lyrics" value={true} onToggle={() => {}} />
         <SettingsRowSwitch icon="musical-note-outline" label="Play in Mini Player Only" value={settings.playInMiniPlayerOnly} onToggle={settings.setPlayInMiniPlayerOnly} />
-        {settings.navBarStyle === 'classic' && (
-          <SettingsRow
-            icon="layers-outline" label="Mini Player Style"
-            value={settings.miniPlayerStyle === 'island' ? 'Dynamic Island' : 'Classic Bar'}
-            onPress={() => settings.setMiniPlayerStyle(settings.miniPlayerStyle === 'island' ? 'bar' : 'island')}
-          />
-        )}
         <SettingsRow
           icon="navigate-outline" label="Navigation Bar Style"
           value={settings.navBarStyle === 'modern-pill' ? 'Modern Pill' : 'Classic'}
@@ -581,6 +798,35 @@ const SettingsScreen: React.FC<Props> = () => {
         </View>
       </BottomSheet>
 
+      <BottomSheet visible={activeSheet === 'miniplayer'} title="Mini Player" onClose={closeSheet}>
+        <SettingsRow
+          icon="image-outline"
+          label="Dynamic Island Background"
+          value={MINI_BG_LABELS[settings.islandBgMode as MiniBgMode] ?? 'Album Art'}
+          onPress={() => {
+            const next = MINI_BG_MODES[(MINI_BG_MODES.indexOf(settings.islandBgMode as MiniBgMode) + 1) % MINI_BG_MODES.length];
+            settings.setIslandBgMode(next);
+          }}
+        />
+        <SettingsRow
+          icon="albums-outline"
+          label="Classic Bar Background"
+          value={MINI_BG_LABELS[settings.classicBarBgMode as MiniBgMode] ?? 'Album Art'}
+          onPress={() => {
+            const next = MINI_BG_MODES[(MINI_BG_MODES.indexOf(settings.classicBarBgMode as MiniBgMode) + 1) % MINI_BG_MODES.length];
+            settings.setClassicBarBgMode(next);
+          }}
+        />
+        {settings.navBarStyle === 'classic' && (
+          <SettingsRow
+            icon="layers-outline" label="Mini Player Style"
+            value={settings.miniPlayerStyle === 'island' ? 'Dynamic Island' : 'Classic Bar'}
+            onPress={() => settings.setMiniPlayerStyle(settings.miniPlayerStyle === 'island' ? 'bar' : 'island')}
+          />
+        )}
+        <SettingsRowSwitch icon="musical-note-outline" label="Play in Mini Player Only" value={settings.playInMiniPlayerOnly} onToggle={settings.setPlayInMiniPlayerOnly} />
+      </BottomSheet>
+
       <BottomSheet visible={activeSheet === 'library'} title="Library" onClose={closeSheet}>
         <SettingsRow
           icon="folder-outline"
@@ -594,13 +840,24 @@ const SettingsScreen: React.FC<Props> = () => {
             settings.libraryBackgroundMode === 'daily' ? 'Most Played Yesterday' :
             settings.libraryBackgroundMode === 'current' ? 'Current Song' :
             settings.libraryBackgroundMode === 'black' ? 'Pure Black' :
-            settings.libraryBackgroundMode === 'grey' ? 'Spotify Grey' : 'Aurora'
+            settings.libraryBackgroundMode === 'grey' ? 'Spotify Grey' :
+            settings.libraryBackgroundMode === 'theme-blue' ? 'LuvLyrics Blue' :
+            settings.libraryBackgroundMode === 'purest-black' ? 'Purest Black' :
+            settings.libraryBackgroundMode === 'theme-subtle' ? 'Subtle Dark' : 'Aurora'
           }
           onPress={() => {
-            const modes: ('daily' | 'current' | 'aurora' | 'black' | 'grey')[] = ['daily', 'current', 'aurora', 'black', 'grey'];
+            const modes: ('daily' | 'current' | 'aurora' | 'black' | 'grey' | 'theme-blue' | 'purest-black' | 'theme-subtle')[] = [
+              'daily', 'current', 'aurora', 'black', 'grey', 'theme-blue', 'purest-black', 'theme-subtle'
+            ];
             const next = modes[(modes.indexOf(settings.libraryBackgroundMode) + 1) % modes.length];
             settings.setLibraryBackgroundMode(next);
           }}
+        />
+        <SettingsRowSwitch
+          icon="color-filter-outline"
+          label="Apply Theme to Other Pages"
+          value={settings.applyThemeToOtherPages}
+          onToggle={settings.setApplyThemeToOtherPages}
         />
         <SettingsRow
           icon="eye-off-outline" label="Hidden Songs"
@@ -636,6 +893,49 @@ const SettingsScreen: React.FC<Props> = () => {
       <BottomSheet visible={activeSheet === 'about'} title="About" onClose={closeSheet}>
         <SettingsRow icon="information-circle-outline" label="Version" value="1.0.0" showChevron={false} />
         <SettingsRow icon="shield-outline" label="Privacy Policy" onPress={() => {}} />
+      </BottomSheet>
+
+      {/* ── Pin Picker ── */}
+      <BottomSheet
+        visible={pinPickerSlot !== null}
+        title={pinPickerSlot !== null ? `Shortcut ${pinPickerSlot + 1}` : 'Shortcut'}
+        onClose={() => setPinPickerSlot(null)}
+      >
+        {PIN_SECTIONS.map(({ key, label }) => (
+          <View key={key}>
+            <Text style={[styles.pinSectionLabel, { color: colors.textMuted }]}>{label}</Text>
+            {(Object.entries(PINNABLE_ITEMS) as [PinId, typeof PINNABLE_ITEMS[PinId]][])
+              .filter(([, v]) => v.section === key)
+              .map(([id, item]) => {
+                const isSelected = pinPickerSlot !== null && quickPins[pinPickerSlot] === id;
+                const usedInOtherSlot = pinPickerSlot !== null && (quickPins as string[]).some((p, i) => p === id && i !== pinPickerSlot);
+                return (
+                  <Pressable
+                    key={id}
+                    style={[styles.pinPickerRow, { borderBottomColor: cardBorder }]}
+                    onPress={() => {
+                      if (pinPickerSlot === null) return;
+                      const next = [...quickPins] as [string, string, string];
+                      next[pinPickerSlot] = id;
+                      setQuickPins(next);
+                      setPinPickerSlot(null);
+                    }}
+                  >
+                    <View style={[styles.menuIcon, { backgroundColor: item.iconColor + '22' }]}>
+                      <Ionicons name={item.icon} size={20} color={item.iconColor} />
+                    </View>
+                    <Text style={[styles.pinPickerLabel, { color: isSelected ? item.iconColor : colors.textPrimary }]}>{item.label}</Text>
+                    {usedInOtherSlot && (
+                      <Text style={[styles.pinPickerUsed, { color: colors.textMuted }]}>In use</Text>
+                    )}
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color={item.iconColor} />
+                    )}
+                  </Pressable>
+                );
+              })}
+          </View>
+        ))}
       </BottomSheet>
 
       {/* ── Alerts & Utility Modals ──────────────────────────────────────────── */}
@@ -803,47 +1103,73 @@ const SettingsScreen: React.FC<Props> = () => {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingBottom: 100 },
+  content: { paddingHorizontal: 16, paddingBottom: 120 },
 
-  // Profile
-  profileSection: { alignItems: 'center', marginTop: 24, marginBottom: 28 },
+  // Screen title
+  screenTitle: { fontSize: 34, fontWeight: '700', letterSpacing: -0.5, marginTop: 12, marginBottom: 20 },
+
+  // Profile card
+  profileCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    borderRadius: 20, padding: 16, marginBottom: 14,
+    borderWidth: 1,
+  },
   avatar: {
-    width: 84, height: 84, borderRadius: 42, backgroundColor: Colors.card,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
-    position: 'relative', borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)',
+    width: 72, height: 72, borderRadius: 36,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, flexShrink: 0,
   },
-  avatarImage: { width: '100%', height: '100%', borderRadius: 42 },
+  avatarImage: { width: '100%', height: '100%', borderRadius: 36 },
   editBadge: {
-    position: 'absolute', bottom: -2, right: -2, width: 28, height: 28,
-    borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.background,
+    position: 'absolute', bottom: -2, right: -2, width: 24, height: 24,
+    borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2,
   },
-  nameContainer: { flexDirection: 'row', alignItems: 'center' },
-  profileName: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
-  profileEmail: { fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
+  profileRight: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  profileName: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  profileSub: { fontSize: 12, marginBottom: 12 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  statItem: { flex: 1, alignItems: 'center' },
+  statNumber: { fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
+  statLabel: { fontSize: 11, marginTop: 1 },
+  statDivider: { width: 1, height: 28, opacity: 0.5 },
 
   // Quick Actions
-  quickActions: { flexDirection: 'row', gap: 10, marginBottom: 28 },
+  quickActions: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   quickAction: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 18,
-    padding: 16, alignItems: 'center', justifyContent: 'center',
-    height: 96, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
-  },
-  quickActionText: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
-
-  // Menu List
-  menuList: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
-    overflow: 'hidden',
+    flex: 1, borderRadius: 16,
+    paddingVertical: 14, paddingHorizontal: 12,
+    alignItems: 'center', gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  quickIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  quickActionText: { fontSize: 13, fontWeight: '600' },
+  quickActionSub: { fontSize: 11 },
+  quickEditHint: { position: 'absolute', top: 8, right: 10 },
+  quickHint: { fontSize: 11, textAlign: 'center', marginBottom: 24, opacity: 0.7 },
+
+  // Pin picker
+  pinSectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginTop: 12, marginBottom: 4, marginLeft: 2 },
+  pinPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
+  pinPickerLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
+  pinPickerUsed: { fontSize: 12, marginRight: 4 },
+
+  // Section label
+  sectionLabel: {
+    fontSize: 12, fontWeight: '600', letterSpacing: 0.6,
+    marginBottom: 8, marginLeft: 4,
+  },
+
+  // Menu groups
+  menuGroup: {
+    borderRadius: 16, overflow: 'hidden', borderWidth: 1, marginBottom: 20,
   },
   menuRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', gap: 14,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 14,
   },
   menuRowLast: { borderBottomWidth: 0 },
   menuIcon: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },

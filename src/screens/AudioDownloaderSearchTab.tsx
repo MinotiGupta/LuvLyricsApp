@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors } from '../constants/colors';
+import { useThemeColors } from '../contexts/ThemeContext';
 import { Toast } from '../components/Toast';
 import { MultiSourceSearchService } from '../services/MultiSourceSearchService';
 import { UnifiedSong } from '../types/song';
@@ -43,13 +43,15 @@ interface ScrollableHeaderProps {
 const ScrollableHeader: React.FC<ScrollableHeaderProps> = memo(({
     tabs, activeTabId, setActiveTab, closeTab, createTab,
     selectionMode, setSelectionMode, activeTabMode, updateTab
-}) => (
+}) => {
+    const colors = useThemeColors();
+    return (
     <View style={styles.toolbarRow}>
         <Pressable
             style={[styles.microBtn, selectionMode && styles.microBtnActive]}
             onPress={() => setSelectionMode(!selectionMode)}
         >
-            <Ionicons name={selectionMode ? "checkmark-circle" : "checkmark-circle-outline"} size={17} color={selectionMode ? '#fff' : Colors.primary} />
+            <Ionicons name={selectionMode ? "checkmark-circle" : "checkmark-circle-outline"} size={17} color={selectionMode ? '#fff' : colors.primary} />
         </Pressable>
 
         <ScrollView
@@ -84,10 +86,11 @@ const ScrollableHeader: React.FC<ScrollableHeaderProps> = memo(({
             style={[styles.microBtn, activeTabMode === 'bulk' && styles.microBtnActive]}
             onPress={() => updateTab(activeTabId, { mode: activeTabMode === 'bulk' ? 'search' : 'bulk' })}
         >
-            <Ionicons name={activeTabMode === 'bulk' ? 'layers' : 'layers-outline'} size={17} color={activeTabMode === 'bulk' ? '#C084FC' : '#555'} />
+            <Ionicons name={activeTabMode === 'bulk' ? 'layers' : 'layers-outline'} size={17} color={activeTabMode === 'bulk' ? '#7BBEFF' : '#555'} />
         </Pressable>
     </View>
-));
+    );
+});
 
 interface BulkHeaderProps extends ScrollableHeaderProps {
     bulkPlaylistName: string;
@@ -114,6 +117,7 @@ const BulkHeader: React.FC<BulkHeaderProps> = memo((props) => (
 
 // Isolated: no props — reads from stores directly, never re-renders on queue progress
 export const AudioDownloaderSearchTab = memo(() => {
+    const colors = useThemeColors();
     const {
         tabs, activeTabId,
         createTab, closeTab, setActiveTab, updateTab,
@@ -536,7 +540,7 @@ Only provide the JSON array, no other text.`);
 
     const selectedCount = getSelectedSongs().length;
     const readyBulkCount = activeTab.bulkItems?.filter(i => i.result).length || 0;
-    const showBottomActionBar = selectedCount > 0 || (activeTab.mode === 'bulk' && readyBulkCount > 0);
+    // const showBottomActionBar = selectedCount > 0 || (activeTab.mode === 'bulk' && readyBulkCount > 0);
 
     const sharedHeaderProps = {
         tabs, activeTabId, setActiveTab, closeTab, createTab,
@@ -620,8 +624,8 @@ Only provide the JSON array, no other text.`);
                                                 <View style={{ width: '50%', padding: 4 }}>
                                                     <View style={styles.bulkPlaceholder}>
                                                         {item.status === 'searching'
-                                                            ? <ActivityIndicator color={Colors.primary} />
-                                                            : <Ionicons name="refresh-circle" size={40} color={Colors.primary} />}
+                                                            ? <ActivityIndicator color={colors.primary} />
+                                                            : <Ionicons name="refresh-circle" size={40} color={colors.primary} />}
                                                         <Text style={styles.bulkPlaceholderTitle}>
                                                             {item.status === 'not_found' ? 'No match yet' : 'Ready to search'}
                                                         </Text>
@@ -685,7 +689,7 @@ Only provide the JSON array, no other text.`);
                     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                         <ScrollableHeader {...sharedHeaderProps} />
                         <View style={styles.center}>
-                            <ActivityIndicator size="large" color={Colors.primary} />
+                            <ActivityIndicator size="large" color={colors.primary} />
                             <Text style={styles.statusText}>{activeTab.status}</Text>
                         </View>
                     </ScrollView>
@@ -815,7 +819,7 @@ const styles = StyleSheet.create({
         height: 46,
         paddingRight: 8,
         borderWidth: 1,
-        borderColor: 'rgba(127,19,236,0.25)',
+        borderColor: 'rgba(47,140,255,0.22)',
     },
     unifiedInput: {
         flex: 1, color: '#fff', fontSize: 15, height: '100%',
@@ -823,11 +827,11 @@ const styles = StyleSheet.create({
     },
     clearSearchBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
     searchModePill: {
-        backgroundColor: 'rgba(127,19,236,0.28)', borderRadius: 14,
+        backgroundColor: 'rgba(47,140,255,0.20)', borderRadius: 14,
         minWidth: 66, height: 30, alignItems: 'center', justifyContent: 'center',
-        paddingHorizontal: 10, marginLeft: 6, borderWidth: 1, borderColor: 'rgba(127,19,236,0.45)',
+        paddingHorizontal: 10, marginLeft: 6, borderWidth: 1, borderColor: 'rgba(47,140,255,0.4)',
     },
-    searchModePillText: { color: '#C084FC', fontSize: 12, fontWeight: '700' },
+    searchModePillText: { color: '#7BBEFF', fontSize: 12, fontWeight: '700' },
     toolbarRow: {
         flexDirection: 'row', alignItems: 'center',
         paddingHorizontal: 10, paddingVertical: 5, gap: 6, marginBottom: 3,
@@ -837,15 +841,15 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center',
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
     },
-    microBtnActive: { backgroundColor: 'rgba(127,19,236,0.32)', borderColor: 'rgba(127,19,236,0.5)' },
+    microBtnActive: { backgroundColor: 'rgba(47,140,255,0.25)', borderColor: 'rgba(47,140,255,0.45)' },
     tabItem: {
         flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 6,
         backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, marginRight: 6,
         borderWidth: 1, borderColor: 'transparent',
     },
-    activeTabItem: { backgroundColor: 'rgba(127,19,236,0.22)', borderColor: 'rgba(127,19,236,0.45)' },
+    activeTabItem: { backgroundColor: 'rgba(47,140,255,0.18)', borderColor: 'rgba(47,140,255,0.38)' },
     tabText: { color: '#555', fontSize: 12, fontWeight: '600', maxWidth: 100 },
-    activeTabText: { color: '#C084FC', fontWeight: '700' },
+    activeTabText: { color: '#7BBEFF', fontWeight: '700' },
     tabBarScroll: { alignItems: 'center', paddingVertical: 3 },
     closeTabBtn: { marginLeft: 5 },
     bulkTitleContainer: { paddingHorizontal: 16, marginBottom: 16 },
@@ -866,18 +870,18 @@ const styles = StyleSheet.create({
     selectionText: { color: '#fff', fontSize: 15, fontWeight: 'bold', flex: 1 },
     reviewBtn: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 12,
+        backgroundColor: '#2F8CFF', paddingHorizontal: 20, paddingVertical: 12,
         borderRadius: 20, gap: 8, marginRight: 8,
     },
     reviewBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
     clearBtn: { padding: 8 },
     bulkContainer: { padding: 16, flex: 1 },
     label: { color: '#666', marginBottom: 8, marginTop: 16, fontWeight: '700', fontSize: 11, textTransform: 'uppercase' },
-    playlistInput: { backgroundColor: 'rgba(255,255,255,0.07)', color: '#fff', padding: 14, borderRadius: 18, fontSize: 16, borderWidth: 1, borderColor: 'rgba(127,19,236,0.25)' },
-    jsonInput: { backgroundColor: 'rgba(255,255,255,0.07)', color: '#ccc', padding: 12, borderRadius: 18, fontSize: 13, height: 160, textAlignVertical: 'top', fontFamily: 'monospace', borderWidth: 1, borderColor: 'rgba(127,19,236,0.25)' },
+    playlistInput: { backgroundColor: 'rgba(255,255,255,0.07)', color: '#fff', padding: 14, borderRadius: 18, fontSize: 16, borderWidth: 1, borderColor: 'rgba(47,140,255,0.22)' },
+    jsonInput: { backgroundColor: 'rgba(255,255,255,0.07)', color: '#ccc', padding: 12, borderRadius: 18, fontSize: 13, height: 160, textAlignVertical: 'top', fontFamily: 'monospace', borderWidth: 1, borderColor: 'rgba(47,140,255,0.22)' },
     copyPromptBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#1E1E1E', borderRadius: 20, marginTop: 12 },
-    copyPromptText: { color: Colors.primary, fontSize: 12, fontWeight: '600' },
-    parseBtn: { backgroundColor: Colors.primary, padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 32, flexDirection: 'row', justifyContent: 'center', gap: 8 },
+    copyPromptText: { color: '#2F8CFF', fontSize: 12, fontWeight: '600' },
+    parseBtn: { backgroundColor: '#2F8CFF', padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 32, flexDirection: 'row', justifyContent: 'center', gap: 8 },
     parseBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8, marginHorizontal: 4 },
     sectionHeaderText: { color: '#444', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
@@ -886,15 +890,15 @@ const styles = StyleSheet.create({
     alreadyPresentOverlay: {
         position: 'absolute', bottom: 8, left: 8, right: 8,
         backgroundColor: 'rgba(0,0,0,0.85)', padding: 10, borderRadius: 12,
-        borderWidth: 1, borderColor: Colors.primary + '44',
+        borderWidth: 1, borderColor: '#2F8CFF44',
         alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
     },
-    alreadyPresentBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, marginBottom: 6, gap: 4 },
+    alreadyPresentBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2F8CFF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, marginBottom: 6, gap: 4 },
     alreadyPresentBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
     alreadyPresentText: { color: '#ccc', fontSize: 10, textAlign: 'center', lineHeight: 14, fontWeight: '500' },
     bulkActionBtn: {
         marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: 'rgba(127,19,236,0.65)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
+        backgroundColor: 'rgba(47,140,255,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
         paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14,
     },
     bulkActionBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },

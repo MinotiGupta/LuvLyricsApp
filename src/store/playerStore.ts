@@ -1,12 +1,8 @@
 import { create } from 'zustand';
 import * as queries from '../database/queries';
 import { Song } from '../types/song';
-
-// Injected by songsStore at init — breaks the circular require in nextInPlaylist
-let _getSongs: (() => Song[]) | null = null;
-export function registerSongsGetter(fn: () => Song[]): void {
-  _getSongs = fn;
-}
+import { useSongsStore } from './songsStore';
+import { useSettingsStore } from './settingsStore';
 
 // Module-level controls ref — written by PlayerContext at mount, read everywhere else.
 // Keeps imperative player commands out of Zustand state so they don't trigger re-renders.
@@ -45,7 +41,7 @@ interface PlayerState {
   setPlaylistQueue: (playlistId: string, songs: Song[], startIndex: number) => void;
   updateQueue: (songs: Song[]) => void;
   removeFromQueue: (songId: string) => void;
-  nextInPlaylist: () => void;
+  nextInPlaylist: () => Promise<void>;
   previousInPlaylist: () => void;
   clearPlaylistQueue: () => void;
   
@@ -71,9 +67,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   
   loadSong: async (songId: string) => {
     // 1. Optimistic Update: Get metadata + audioUri from Memory (Instant)
-    const { useSongsStore } = await import('./songsStore');
-    const { useSettingsStore } = await import('./settingsStore'); // Dynamic import to avoid cycles
-    
     // Save history if in a playlist
     const state = get();
     if (state.currentPlaylistId && songId) {
@@ -212,14 +205,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
   
-  nextInPlaylist: () => {
+  nextInPlaylist: async () => {
     const state = get();
 
     // Safety net: queue was never set (e.g. song launched via fallback path or Recently Played)
-    // Rebuild from songsStore so auto-next still works
+    // Rebuild from DB so auto-next still works — no circular dep to songsStore
     if (!state.playlistQueue || state.playlistQueue.length === 0) {
       if (state.currentPlaylistId === 'library' && state.currentSongId) {
-        const allSongs: Song[] = _getSongs ? _getSongs() : [];
+        const allSongs = await queries.getAllSongs();
         if (allSongs.length > 0) {
           const idx = allSongs.findIndex((s: Song) => s.id === state.currentSongId);
           set({ playlistQueue: allSongs, currentQueueIndex: idx !== -1 ? idx : 0 });
@@ -244,7 +237,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
     
     // Trigger audio load
-    get().loadSong(nextSong.id);
+    await get().loadSong(nextSong.id);
     playerControls.play();
     if (__DEV__) {
       console.log(`[PLAYER] Next in playlist: ${nextSong.title}`);

@@ -7,7 +7,6 @@ import { create } from 'zustand';
 import { Song, SortOption } from '../types/song';
 import * as queries from '../database/queries';
 import { useDailyStatsStore } from './dailyStatsStore';
-import { registerSongsGetter } from './playerStore';
 
 interface SongsState {
   // State
@@ -210,20 +209,21 @@ export const useSongsStore = create<SongsState>()((set, get) => ({
         }
       },
 
-      // Toggle Like
+      // Toggle Like — delegates to playlistStore (single source of truth).
+      // We still patch songsStore and playerStore in-memory so legacy
+      // consumers that read song.isLiked directly (LikedSongsScreen,
+      // RecentlyPlayedGrid, SongCard) stay reactive without a full refetch.
       toggleLike: async (songId: string) => {
          try {
              const { usePlaylistStore } = await import('./playlistStore');
              await usePlaylistStore.getState().toggleLiked(songId);
-             
+
+             // Optimistic patch for in-memory consumers
              set((state) => {
                 const song = state.songs.find(s => s.id === songId);
                 if (!song) return state;
-                
                 const updatedSong = { ...song, isLiked: !song.isLiked };
-                return {
-                    songs: state.songs.map(s => s.id === songId ? updatedSong : s),
-                };
+                return { songs: state.songs.map(s => s.id === songId ? updatedSong : s) };
              });
 
              const { usePlayerStore } = await import('./playerStore');
@@ -239,5 +239,4 @@ export const useSongsStore = create<SongsState>()((set, get) => ({
       clearError: () => set({ error: null }),
 }));
 
-// Give playerStore a sync path to songs — breaks the circular require in nextInPlaylist
-registerSongsGetter(() => useSongsStore.getState().songs);
+
