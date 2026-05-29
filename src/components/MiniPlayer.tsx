@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { View, Text, Pressable, StyleSheet, Image, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import * as GestureHandler from 'react-native-gesture-handler';
 import SynchronizedLyrics from './SynchronizedLyrics';
@@ -742,33 +743,34 @@ export const MiniPlayer: React.FC = () => {
 
         {isIsland && (
            <View style={[StyleSheet.absoluteFill, { borderRadius: expanded ? 40 : 30, overflow: 'hidden' }]}>
+              {/* Frosted glass base — blurs app content behind the island pill */}
+              <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+
               {useThemeBg ? (
-                 /* Theme palette gradient */
-                 <LinearGradient
-                   colors={themePlayerColors}
-                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                   style={StyleSheet.absoluteFill}
-                 />
+                 /* Semi-transparent theme gradient over the blur */
+                 <View style={[StyleSheet.absoluteFill, { opacity: 0.65 }]}>
+                   <LinearGradient
+                     colors={themePlayerColors}
+                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                     style={StyleSheet.absoluteFill}
+                   />
+                 </View>
               ) : !libraryFocusMode && currentSong.coverImageUri ? (
                  <Image
                    source={{ uri: currentSong.coverImageUri }}
-                   style={StyleSheet.absoluteFill}
+                   style={[StyleSheet.absoluteFill, { opacity: 0.45 }]}
                    resizeMode="cover"
                    blurRadius={22}
                  />
-              ) : (
-                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
-              )}
+              ) : null}
 
-              {/* 2. Vignette / Dark Overlay to make text pop */}
+              {/* Vignette for text readability */}
               <LinearGradient
-                colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']}
+                colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.65)']}
                 start={{x: 0, y: 0}}
                 end={{x: 0, y: 1}}
                 style={StyleSheet.absoluteFill}
               />
-              
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
            </View>
         )}
         

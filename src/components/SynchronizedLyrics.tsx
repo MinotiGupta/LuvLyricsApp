@@ -15,7 +15,6 @@ import Animated, {
   SharedValue
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const LYRIC_LINE_HEIGHT = 68; // fontSize 28 + marginVertical 16*2
@@ -130,6 +129,7 @@ interface SynchronizedLyricsProps {
   topSpacerHeight?: number;
   bottomSpacerHeight?: number;
   expandedAt?: number; // timestamp (Date.now()) when panel opened — resets initial scroll
+  fadeColor?: string; // color to fade into at top/bottom edges (default black)
 }
 
 export interface SynchronizedLyricsRef {
@@ -151,6 +151,7 @@ const SynchronizedLyrics = forwardRef<SynchronizedLyricsRef, SynchronizedLyricsP
   topSpacerHeight = SCREEN_HEIGHT * 0.4,
   bottomSpacerHeight = SCREEN_HEIGHT * 0.4,
   expandedAt = 0,
+  fadeColor = '#000000',
 }, ref) => {
   const flashListRef = useRef<FlashListRef<{ timestamp: number; text: string }>>(null);
 
@@ -301,16 +302,7 @@ const SynchronizedLyrics = forwardRef<SynchronizedLyricsRef, SynchronizedLyricsP
 
   return (
     <Animated.View style={[styles.container, containerStyle]}>
-      <MaskedView
-        style={styles.maskedView}
-        maskElement={
-          <LinearGradient
-            colors={['transparent', 'black', 'black', 'transparent']}
-            locations={[0, 0.12, 0.88, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        }
-      >
+      <View style={styles.listContainer}>
         <FlashList
           ref={flashListRef}
           onLayout={() => setIsLayoutReady(true)}
@@ -333,7 +325,18 @@ const SynchronizedLyrics = forwardRef<SynchronizedLyricsRef, SynchronizedLyricsP
           }}
           showsVerticalScrollIndicator={false}
         />
-      </MaskedView>
+        {/* Top and bottom fade overlays — composited on RenderThread, no offscreen pass */}
+        <LinearGradient
+          colors={[fadeColor, 'transparent']}
+          style={styles.fadeTop}
+          pointerEvents="none"
+        />
+        <LinearGradient
+          colors={['transparent', fadeColor]}
+          style={styles.fadeBottom}
+          pointerEvents="none"
+        />
+      </View>
     </Animated.View>
   );
 });
@@ -343,10 +346,24 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
-  maskedView: {
+  listContainer: {
     flex: 1,
     height: '100%',
     width: '100%',
+  },
+  fadeTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 90,
+  },
+  fadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 90,
   },
   lyricText: {
     fontSize: 28,

@@ -11,6 +11,7 @@ import { useArtHistoryStore } from '../store/artHistoryStore';
 import { useSettingsStore } from '../store/settingsStore';
 import * as queries from '../database/queries';
 import { getGradientColors } from '../constants/gradients';
+import { extractAlbumColors } from '../services/NativePalette';
 import { SynchronizedLyricsRef } from '../components/SynchronizedLyrics';
 import { useThemeColors, useIsDark } from '../contexts/ThemeContext';
 import { useIsSongLiked } from '../hooks/useIsSongLiked';
@@ -347,9 +348,27 @@ export function useNowPlayingLogic(songId: string) {
     ? 'aurora'
     : (currentSong?.gradientId || 'aurora');
 
+  // Palette colors extracted natively from album art (Android only; null on iOS/no cover)
+  const [extractedColors, setExtractedColors] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!isDynamicTheme || !currentSong?.coverImageUri) {
+      setExtractedColors(null);
+      return;
+    }
+    extractAlbumColors(currentSong.coverImageUri).then(swatches => {
+      if (!swatches) return;
+      setExtractedColors([
+        swatches.darkVibrant?.color ?? swatches.dominant?.color ?? '#111',
+        swatches.vibrant?.color ?? swatches.dominant?.color ?? '#333',
+        swatches.darkMuted?.color ?? '#000',
+      ]);
+    });
+  }, [currentSong?.coverImageUri, isDynamicTheme]);
+
   const gradientColors = !isDynamicTheme || !currentSong?.coverImageUri
     ? getGradientColors(effectiveGradientId)
-    : ['#000', '#000'];
+    : (extractedColors ?? ['#111', '#333', '#000']);
 
   return {
     colors,

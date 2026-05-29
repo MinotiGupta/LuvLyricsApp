@@ -63,5 +63,7 @@ class ExpoModulesPackageList : ModulesProvider {
         com.lyricflow.app.modules.MainPlayerModule::class.java,
         com.lyricflow.app.modules.LuvsPlayerModule::class.java,
         com.lyricflow.app.modules.DownloaderModule::class.java,
+        com.lyricflow.app.modules.SearchModule::class.java,
+        com.lyricflow.app.modules.PaletteModule::class.java,
     )
 }

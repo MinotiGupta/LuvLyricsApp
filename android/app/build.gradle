@@ -162,6 +162,9 @@ dependencies {
     // WorkManager Kotlin runtime for Module C
     implementation "androidx.work:work-runtime-ktx:2.9.0"
 
+    // Palette API for Module F (album art color extraction)
+    implementation "androidx.palette:palette-ktx:1.0.0"
+
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

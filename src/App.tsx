@@ -19,6 +19,7 @@ import { setAudioModeAsync } from 'expo-audio';
 import * as Font from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { getPreloadedData } from './services/NativeStartup';
+import { ensureSearchIndex } from './services/NativeSearch';
 
 // ─── Music Equalizer Loader ───────────────────────────────────────────────────
 
@@ -134,6 +135,9 @@ const App: React.FC = () => {
 
           // Pre-fetch Luvs for instant playback
           import('./services/LuvsRecommendationEngine').then(m => m.luvsRecommendationEngine.prefetch()).catch(console.error);
+
+          // Build/verify FTS5 search index in background (Android only; no-op on iOS)
+          ensureSearchIndex().catch(() => {});
 
           console.log('[APP] Initialization successful');
           setIsReady(true);

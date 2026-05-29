@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import java.lang.ref.WeakReference
+import kotlinx.coroutines.*
 
 object PlayerBridge {
     private var activePlayerRef = WeakReference<ExoPlayer>(null)
@@ -22,6 +23,9 @@ object PlayerBridge {
         }
     }
 
+    private val pollerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var pollerJob: Job? = null
+
     fun setPlayer(player: ExoPlayer, context: Context) {
         activePlayerRef = WeakReference(player)
         activeServiceRef = WeakReference(context)
@@ -30,6 +34,7 @@ object PlayerBridge {
     }
 
     fun clearPlayer() {
+        stopProgressPoller()
         activePlayerRef.get()?.removeListener(playerListener)
         activePlayerRef.clear()
         activeServiceRef.clear()
@@ -55,26 +60,19 @@ object PlayerBridge {
         )
     }
 
-    private var pollerRunning = false
     private fun startProgressPoller() {
-        if (pollerRunning) return
-        pollerRunning = true
-        Thread {
-            while (pollerRunning) {
-                val player = activePlayerRef.get()
-                if (player == null) {
-                    pollerRunning = false
-                    break
-                }
-                if (player.isPlaying) {
-                    emitStatus()
-                }
-                try {
-                    Thread.sleep(250)
-                } catch (e: InterruptedException) {
-                    break
-                }
+        pollerJob?.cancel()
+        pollerJob = pollerScope.launch {
+            while (isActive) {
+                val player = activePlayerRef.get() ?: break
+                if (player.isPlaying) emitStatus()
+                delay(250)
             }
-        }.apply { isDaemon = true; start() }
+        }
+    }
+
+    private fun stopProgressPoller() {
+        pollerJob?.cancel()
+        pollerJob = null
     }
 }

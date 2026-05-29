@@ -8,6 +8,7 @@ import { Song, SortOption } from '../types/song';
 import * as queries from '../database/queries';
 import { useDailyStatsStore } from './dailyStatsStore';
 import { registerSongsGetter } from './playerStore';
+import { nativeSearch } from '../services/NativeSearch';
 
 interface SongsState {
   // State
@@ -197,12 +198,14 @@ export const useSongsStore = create<SongsState>()((set, get) => ({
         set({ sortBy });
       },
 
-      // Search songs
+      // Search songs — native FTS5 on Android, JS fallback on iOS
       searchSongs: async (query: string) => {
         if (!query.trim()) {
           return get().songs;
         }
         try {
+          const native = await nativeSearch(query);
+          if (native !== null) return native;
           return await queries.searchSongs(query);
         } catch (error) {
           console.error('Search failed:', error);
