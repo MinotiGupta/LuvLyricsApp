@@ -103,7 +103,7 @@ export const PlaylistsScreen: React.FC = () => {
   useFocusEffect(
     React.useCallback(() => {
       fetchPlaylists();
-      setMiniPlayerHidden(true);
+      setMiniPlayerHidden(false);
     }, [fetchPlaylists, setMiniPlayerHidden])
   );
 

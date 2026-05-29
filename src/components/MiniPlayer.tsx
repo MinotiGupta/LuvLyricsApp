@@ -129,7 +129,7 @@ PlaybackControls.displayName = 'PlaybackControls';
 
 // UIManager.setLayoutAnimationEnabledExperimental removed to avoid New Architecture warning
 
-export const MiniPlayer: React.FC = () => {
+export const MiniPlayer: React.FC<{ isHomeTab?: boolean }> = ({ isHomeTab = true }) => {
   const player = usePlayer();
   const currentSong = usePlayerStore(state => state.currentSong);
   const showTransliteration = usePlayerStore(state => state.showTransliteration);
@@ -187,7 +187,7 @@ export const MiniPlayer: React.FC = () => {
   const fullExpansionProgress = useSharedValue(0); // 0 = half screen, 1 = full screen (island)
   const classicFullProgress = useSharedValue(0); // 0 = half-opened, 1 = 95% full (classic only)
   
-  const isIsland = miniPlayerStyle === 'island';
+  const isIsland = miniPlayerStyle === 'island' && isHomeTab;
   
   const screenHeight = Dimensions.get('window').height;
   

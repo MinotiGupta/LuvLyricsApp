@@ -447,6 +447,7 @@ const SettingsScreen: React.FC<Props> = () => {
   const [selectedFiles, setSelectedFiles] = React.useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = React.useState('');
   const setMiniPlayerHidden = usePlayerStore(state => state.setMiniPlayerHidden);
+  useFocusEffect(React.useCallback(() => { setMiniPlayerHidden(false); }, [setMiniPlayerHidden]));
   const likedCount = usePlaylistStore(state => state.likedSongIds.size);
   const [hiddenSongsVisible, setHiddenSongsVisible] = React.useState(false);
   const { hiddenSongs, fetchHiddenSongs, hideSong: unhideSong } = useSongsStore();

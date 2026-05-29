@@ -42,6 +42,7 @@ import { useSortedSongs } from '../hooks/useSortedSongs';
 import { usePlaybackQueue } from '../hooks/usePlaybackQueue';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import Animated, { useSharedValue, useAnimatedScrollHandler, runOnJS, useAnimatedStyle } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import LibraryHeader from '../components/LibraryHeader';
 import LibraryEmptyState from '../components/LibraryEmptyState';
 import LibraryBottomSheet from '../components/LibraryBottomSheet';
@@ -468,6 +469,15 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
           keyboardDismissMode="on-drag"
         />
       </SafeAreaView>
+
+      {/* Fade aurora gradient at bottom so it doesn't bleed below song list */}
+      {isDark && (
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.85)']}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 180 }}
+          pointerEvents="none"
+        />
+      )}
 
       <LibraryBottomSheet
         visible={showBottomSheet}

@@ -95,8 +95,8 @@ export const RootNavigator: React.FC = () => {
           />
         </Stack.Navigator>
         
-        {/* Hide MiniPlayer on Luvs tab */}
-        {currentRoute !== 'Luvs' && <MiniPlayer />}
+        {/* Hide MiniPlayer on Luvs tab; restrict island to Home tab only */}
+        {currentRoute !== 'Luvs' && <MiniPlayer isHomeTab={currentRoute === 'Home'} />}
         <BackgroundDownloader />
       </View>
     </NavigationContainer>
