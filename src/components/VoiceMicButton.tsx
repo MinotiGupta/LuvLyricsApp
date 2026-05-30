@@ -116,21 +116,27 @@ export const VoiceMicButton: React.FC<Props> = ({ style, variant = 'floating' })
     height: interpolate(bar4.value, [0, 1], [4, 20]),
   }));
 
-  // Hybrid: quick tap = toggle on/off, long press = hold-to-talk
+  // Hybrid hold+tap using RN's onLongPress (suppresses onPress when long press fires)
+  const isHoldRef = useRef(false);
+
   const onPressIn = useCallback(() => {
-    pressStartRef.current = Date.now();
+    isHoldRef.current = false;
     wasListeningOnPressRef.current = isListening;
     if (!isListening) startListening();
   }, [isListening, startListening]);
 
+  const onLongPress = useCallback(() => {
+    isHoldRef.current = true; // mark as hold — onPress won't fire after this
+  }, []);
+
   const onPressOut = useCallback(() => {
-    const held = Date.now() - pressStartRef.current;
-    if (held >= HOLD_THRESHOLD) stopListening();
+    if (isHoldRef.current) stopListening(); // hold released → stop
   }, [stopListening]);
 
   const onPress = useCallback(() => {
-    const held = Date.now() - pressStartRef.current;
-    if (held < HOLD_THRESHOLD && wasListeningOnPressRef.current) stopListening();
+    // only fires on quick tap (RN suppresses this when onLongPress fired)
+    if (wasListeningOnPressRef.current) stopListening(); // was on → tap turns off
+    // was off → startListening already called in onPressIn, stays on
   }, [stopListening]);
 
   const bgColor = isListening ? PRIMARY : (isDark ? '#1A1A2E' : '#FFFFFF');
@@ -148,6 +154,8 @@ export const VoiceMicButton: React.FC<Props> = ({ style, variant = 'floating' })
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={300}
         style={style}
       >
         <View style={[styles.inlineButton, { backgroundColor: brutalBg, borderColor: brutalBorder }]}>
@@ -182,6 +190,8 @@ export const VoiceMicButton: React.FC<Props> = ({ style, variant = 'floating' })
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={300}
         android_ripple={null}
       >
         <Animated.View

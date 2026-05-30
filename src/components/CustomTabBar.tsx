@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { View, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VoiceMicButton } from './VoiceMicButton';
 
 const MIC_WRAPPER_SIZE = 56;
@@ -15,6 +16,7 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({
   descriptors,
   navigation,
 }) => {
+  const insets = useSafeAreaInsets();
   const midpoint = Math.ceil(state.routes.length / 2);
   const leftRoutes = state.routes.slice(0, midpoint);
   const rightRoutes = state.routes.slice(midpoint);
@@ -46,7 +48,7 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({
   };
 
   return (
-    <View style={styles.outerContainer} pointerEvents="box-none">
+    <View style={[styles.outerContainer, { paddingBottom: insets.bottom }]} pointerEvents="box-none">
       <View style={styles.container}>
         <View style={styles.tabBar}>
           {/* Left tabs */}
@@ -72,7 +74,7 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 12 : 8,
+    bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
