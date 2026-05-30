@@ -55,8 +55,6 @@ export const LyricsLine: React.FC<LyricsLineProps> = memo(({
       lineHeight: isActive ? activeLineHeight : inactiveLineHeight,
       fontWeight: (isActive ? '800' : '700') as '800' | '700',
       color: isActive ? colorCurrent : isPrevious ? colorPrevious : colorUpcoming,
-      textShadowRadius: isActive ? 10 : 0,
-      textShadowColor: isActive ? 'rgba(255,255,255,0.3)' : 'transparent',
     };
   });
 

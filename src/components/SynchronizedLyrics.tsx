@@ -14,8 +14,6 @@ import Animated, {
   runOnJS,
   SharedValue
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const LYRIC_LINE_HEIGHT = 68; // fontSize 28 + marginVertical 16*2
 import { useSettingsStore } from '../store/settingsStore';
@@ -325,17 +323,7 @@ const SynchronizedLyrics = forwardRef<SynchronizedLyricsRef, SynchronizedLyricsP
           }}
           showsVerticalScrollIndicator={false}
         />
-        {/* Top and bottom fade overlays — composited on RenderThread, no offscreen pass */}
-        <LinearGradient
-          colors={[fadeColor, 'transparent']}
-          style={styles.fadeTop}
-          pointerEvents="none"
-        />
-        <LinearGradient
-          colors={['transparent', fadeColor]}
-          style={styles.fadeBottom}
-          pointerEvents="none"
-        />
+        {/* No top/bottom fade overlays — clean scroll edges */}
       </View>
     </Animated.View>
   );
@@ -371,10 +359,6 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     marginVertical: 16,
     paddingHorizontal: 32,
-    // Soft white glow for professional blurred text look
-    textShadowColor: 'rgba(255,255,255,0.12)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
   }
 });
 

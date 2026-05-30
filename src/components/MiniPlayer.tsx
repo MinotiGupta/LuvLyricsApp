@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 import * as GestureHandler from 'react-native-gesture-handler';
 import SynchronizedLyrics from './SynchronizedLyrics';
 import TimelineScrubber from './TimelineScrubber';
@@ -143,7 +145,7 @@ export const MiniPlayer: React.FC<{ isHomeTab?: boolean }> = ({ isHomeTab = true
   const libraryFocusMode = useSettingsStore(state => state.libraryFocusMode);
   const islandBgMode = useSettingsStore(state => state.islandBgMode);
   const classicBarBgMode = useSettingsStore(state => state.classicBarBgMode);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   
   // Use store instead of navigation state to avoid root-level crashes
   const isNowPlaying = hideMiniPlayer;
@@ -631,7 +633,7 @@ export const MiniPlayer: React.FC<{ isHomeTab?: boolean }> = ({ isHomeTab = true
   const openNowPlaying = useCallback(() => {
     if (currentSong) {
       setMiniPlayerHidden(true);
-      (navigation as any).navigate('NowPlaying', { songId: currentSong.id });
+      navigation.navigate('NowPlaying', { songId: currentSong.id });
       expansionProgress.value = withSpring(0);
       lyricExpansionProgress.value = withSpring(0);
       fullExpansionProgress.value = withSpring(0);
@@ -733,11 +735,7 @@ export const MiniPlayer: React.FC<{ isHomeTab?: boolean }> = ({ isHomeTab = true
                ) : (
                   <View style={[StyleSheet.absoluteFill, { backgroundColor: '#111' }]} />
                )}
-               {/* Vignette overlay for text readability */}
-               <LinearGradient
-                  colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
-                  style={StyleSheet.absoluteFill}
-               />
+                {/* No vignette overlay — clean background */}
            </View>
         )}
 
@@ -1054,13 +1052,10 @@ const styles = StyleSheet.create({
       elevation: 3,
   },
   trayLyricText: {
-    color: '#fff', 
-    fontSize: 18, 
-    fontWeight: '700', 
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
     textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2
   },
   expandedLyricsContainer: {
     flex: 1, 
@@ -1068,13 +1063,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20
   },
   expandedLyricText: {
-    color: '#fff', 
-    fontSize: 23, 
-    fontWeight: '800', 
+    color: '#fff',
+    fontSize: 23,
+    fontWeight: '800',
     textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2
   },
   expandedContent: {
     flex: 1, 
