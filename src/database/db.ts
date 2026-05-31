@@ -160,6 +160,18 @@ const initializeTables = async (database: SQLite.SQLiteDatabase): Promise<void> 
       FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
     );
     
+    CREATE TABLE IF NOT EXISTS download_jobs (
+      id TEXT PRIMARY KEY,
+      song_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      progress REAL DEFAULT 0,
+      target_playlist_id TEXT,
+      sort_order INTEGER DEFAULT 0,
+      error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title);
     CREATE INDEX IF NOT EXISTS idx_songs_artist ON songs(artist);
     CREATE INDEX IF NOT EXISTS idx_lyrics_song_id ON lyrics(song_id);

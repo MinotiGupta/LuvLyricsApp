@@ -105,6 +105,11 @@ const App: React.FC = () => {
           // Open the write connection (fast — Kotlin already opened read-only above)
           await initDatabase();
 
+          // Restore any downloads that were in-flight when the app was last killed
+          import('./store/downloadQueueStore')
+            .then(m => m.useDownloadQueueStore.getState().hydrateFromDb())
+            .catch(() => {});
+
           const { usePlaylistStore } = await import('./store/playlistStore');
 
           if (preloaded && preloaded.songs.length > 0) {
