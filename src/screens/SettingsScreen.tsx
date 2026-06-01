@@ -30,6 +30,7 @@ import { getGradientColors } from '../constants/gradients';
 import { useDailyStatsStore } from '../store/dailyStatsStore';
 import { AuroraHeader } from '../components/AuroraHeader';
 import { Colors } from '../constants/colors';
+import { SettingsStrings } from '../constants/uiStrings';
 import { exportAllSongs, shareExportedFile, importSongsFromJson } from '../utils/exportImport';
 import { clearAllData } from '../database/queries';
 import { useLuvsPreferencesStore } from '../store/luvsPreferencesStore';
@@ -203,7 +204,7 @@ const LuvsLanguagesModal = ({ visible, onClose }: { visible: boolean; onClose: (
           borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.textPrimary }}>Music Languages</Text>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.textPrimary }}>{SettingsStrings.musicLanguages}</Text>
             <Pressable onPress={onClose}>
               <Ionicons name="close-circle" size={28} color={Colors.textSecondary} />
             </Pressable>
@@ -597,7 +598,7 @@ const SettingsScreen: React.FC<Props> = () => {
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 150 + insets.bottom }]} showsVerticalScrollIndicator={false}>
 
           {/* ── Screen title ── */}
-          <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Settings</Text>
+          <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>{SettingsStrings.screenTitle}</Text>
 
           {/* ── Profile card ── */}
           <View style={[styles.profileCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
@@ -629,17 +630,17 @@ const SettingsScreen: React.FC<Props> = () => {
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
                   <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{songs.length}</Text>
-                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Songs</Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>{SettingsStrings.songs}</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: cardBorder }]} />
                 <View style={styles.statItem}>
                   <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{likedCount}</Text>
-                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Liked</Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>{SettingsStrings.liked}</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: cardBorder }]} />
                 <View style={styles.statItem}>
                   <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{hiddenSongs.length}</Text>
-                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Hidden</Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>{SettingsStrings.hidden}</Text>
                 </View>
               </View>
             </View>
@@ -881,7 +882,7 @@ const SettingsScreen: React.FC<Props> = () => {
               title: 'Reset Settings',
               message: 'All settings will be restored to their defaults. Your library will not be affected.',
               buttons: [
-                { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+                { text: SettingsStrings.cancel, onPress: () => {}, style: 'cancel' },
                 { text: 'Reset', onPress: () => { settings.resetToDefaults(); closeSheet(); }, style: 'destructive' },
               ],
             });
@@ -896,7 +897,7 @@ const SettingsScreen: React.FC<Props> = () => {
               title: 'Clear All Data',
               message: 'This will permanently delete your entire song library and playlists. This cannot be undone.',
               buttons: [
-                { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+                { text: SettingsStrings.cancel, onPress: () => {}, style: 'cancel' },
                 { text: 'Delete Everything', onPress: async () => { await clearAllData(); closeSheet(); }, style: 'destructive' },
               ],
             });
@@ -929,10 +930,10 @@ const SettingsScreen: React.FC<Props> = () => {
             />
             <View style={styles.nameModalButtons}>
               <Pressable style={styles.nameModalButton} onPress={() => setEditNameVisible(false)}>
-                <Text style={styles.nameModalButtonText}>Cancel</Text>
+                <Text style={styles.nameModalButtonText}>{SettingsStrings.cancel}</Text>
               </Pressable>
               <Pressable style={[styles.nameModalButton, styles.nameModalButtonPrimary]} onPress={handleSaveName}>
-                <Text style={[styles.nameModalButtonText, styles.nameModalButtonTextPrimary]}>Save</Text>
+                <Text style={[styles.nameModalButtonText, styles.nameModalButtonTextPrimary]}>{SettingsStrings.save}</Text>
               </Pressable>
             </View>
           </View>
@@ -984,7 +985,7 @@ const SettingsScreen: React.FC<Props> = () => {
             </ScrollView>
             <View style={styles.selectionActions}>
               <Pressable style={[styles.selectionButton, styles.selectionButtonCancel]} onPress={handleCloseSelectionModal}>
-                <Text style={styles.selectionButtonText}>Cancel</Text>
+                <Text style={styles.selectionButtonText}>{SettingsStrings.cancel}</Text>
               </Pressable>
               <Pressable
                 style={[styles.selectionButton, styles.selectionButtonImport, selectedFiles.size === 0 && styles.selectionButtonDisabled]}
@@ -1000,7 +1001,7 @@ const SettingsScreen: React.FC<Props> = () => {
       <Modal visible={pairingModalVisible} transparent animationType="slide" onRequestClose={() => setPairingModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setPairingModalVisible(false)}>
           <Pressable style={styles.nameModal} onPress={e => e.stopPropagation()}>
-            <Text style={styles.nameModalTitle}>Trusted Pairing</Text>
+            <Text style={styles.nameModalTitle}>{SettingsStrings.trustedPairing}</Text>
             <Text style={styles.pairingHint}>Scan the desktop QR and paste its JSON payload here.</Text>
             <TextInput
               style={styles.pairingInput} value={pairingPayloadText} onChangeText={setPairingPayloadText}
@@ -1009,7 +1010,7 @@ const SettingsScreen: React.FC<Props> = () => {
             />
             <View style={styles.nameModalButtons}>
               <Pressable style={styles.nameModalButton} onPress={() => setPairingModalVisible(false)}>
-                <Text style={styles.nameModalButtonText}>Cancel</Text>
+                <Text style={styles.nameModalButtonText}>{SettingsStrings.cancel}</Text>
               </Pressable>
               <Pressable style={[styles.nameModalButton, styles.nameModalButtonPrimary]} onPress={handlePairFromPayload} disabled={pairingBusy}>
                 <Text style={[styles.nameModalButtonText, styles.nameModalButtonTextPrimary]}>{pairingBusy ? 'Pairing…' : 'Pair'}</Text>
@@ -1051,7 +1052,7 @@ const SettingsScreen: React.FC<Props> = () => {
                       style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, backgroundColor: 'rgba(0,122,255,0.1)' }}
                       onPress={() => unhideSong(song.id, false)}
                     >
-                      <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>Unhide</Text>
+                      <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>{SettingsStrings.unhide}</Text>
                     </Pressable>
                   </View>
                 ))
@@ -1059,7 +1060,7 @@ const SettingsScreen: React.FC<Props> = () => {
             </ScrollView>
             <View style={styles.selectionActions}>
               <Pressable style={[styles.selectionButton, styles.selectionButtonCancel, { flex: 1 }]} onPress={() => setHiddenSongsVisible(false)}>
-                <Text style={styles.selectionButtonText}>Close</Text>
+                <Text style={styles.selectionButtonText}>{SettingsStrings.close}</Text>
               </Pressable>
             </View>
           </Pressable>
